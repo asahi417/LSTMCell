@@ -1,8 +1,11 @@
 
 import os
 import logging
+import argparse
+
 import tensorflow as tf
 import numpy as np
+from time import time
 
 from data_reader import ptb_raw_data, BatchFeeder
 from model import LSTMLanguageModel
@@ -29,7 +32,7 @@ def train(epoch, model,
           iter_train_data,
           iter_valid_data,
           iter_test_data,
-          save_path="./log", lr_decay=None, test=False):
+          save_path="./log", lr_decay=None, verbose=False):
     """ Train model based on mini-batch of input data.
 
     :param int epoch:
@@ -39,60 +42,70 @@ def train(epoch, model,
     :param iter_test_data: Data iterator.
     :param str save_path: Path to save
     :param float lr_decay: learning rate will be divided by lr_decay each 100 epoch
-    :param bool test: Show loss in each iteration.
+    :param bool verbose: Show loss in each iteration.
     """
-    data_size = iter_train_data.data_size
-    num_steps = iter_train_data.num_steps
-    batch_size = iter_train_data.batch_size
+
+    num_gpu = 0  # number of gpu
 
     # logger
     if not os.path.exists(save_path):
         os.makedirs(save_path, exist_ok=True)
     logger = _create_log("%s/log" % save_path)
     logger.info(model.__doc__)
-    logger.info("train: epoch (%i), size (%i), batch size(%i)" % (epoch, data_size, batch_size))
+    logger.info("train: epoch (%i), sequence length (%i), batch size(%i)" %
+                (epoch, iter_train_data.data_size, iter_train_data.batch_size))
 
     # Initializing the tensor flow variables
     model.sess.run(tf.global_variables_initializer())
 
+    initial_state = None
     result = []
     for _e in range(epoch):
 
         # Train
         length, loss = 0, 0.0
-        for _in, _out in iter_train_data:
+        start_time = time()
+        for step, (_in, _out) in enumerate(iter_train_data):
             feed_dict = dict(((model.inputs, _in), (model.targets, _out), (model.is_train, True)))
+            if initial_state is not None:
+                feed_dict[model.initial_state] = initial_state
             if lr_decay is not None and lr_decay != 1.0:
-                feed_dict[model.lr_decay] = lr_decay ** (np.ceil(_e / 100) - 1)
-            _loss, _ = model.sess.run([model.loss, model.train_op], feed_dict=feed_dict)
-            loss += _loss
-            length += num_steps
-            if test:
-                print(np.exp(loss / length))
+                feed_dict[model.lr_decay] = lr_decay ** (_e // 100)
+            val = model.sess.run([model.loss, model.final_state, model.train_op], feed_dict=feed_dict)
+
+            loss += val[0]
+            initial_state = val[1]
+            length += iter_train_data.num_steps
+
+            if verbose and step % (iter_train_data.iteration_number // 10) == 10:
+                wps = length * iter_train_data.batch_size * max(1, num_gpu) / (time() - start_time)
+                logger.info("epoch %i-%i/%i perplexity: %.3f, speed: %.3f wps"
+                            % (_e, step, iter_train_data.iteration_number, np.exp(loss / length), wps))
+
         perplexity = np.exp(loss / length)
 
         # Valid
         length, loss = 0, 0.0
         for _in, _out in iter_valid_data:
             feed_dict = dict(((model.inputs, _in), (model.targets, _out), (model.is_train, False)))
-            _loss = model.sess.run([model.loss], feed_dict=feed_dict)
-            loss += _loss
-            length += num_steps
+            val = model.sess.run([model.loss], feed_dict=feed_dict)
+            loss += val[0]
+            length += iter_train_data.num_steps
         perplexity_valid = np.exp(loss / length)
 
         # Test
         length, loss = 0, 0.0
         for _in, _out in iter_test_data:
             feed_dict = dict(((model.inputs, _in), (model.targets, _out), (model.is_train, False)))
-            _loss = model.sess.run([model.loss], feed_dict=feed_dict)
-            loss += _loss
-            length += num_steps
+            val = model.sess.run([model.loss], feed_dict=feed_dict)
+            loss += val[0]
+            length += iter_train_data.num_steps
         perplexity_test = np.exp(loss / length)
 
         logger.info("epoch %i, perplexity: train %0.3f, valid %0.3f, test %0.3f"
                     % (_e, perplexity, perplexity_valid, perplexity_test))
 
-        result = [perplexity, perplexity_valid, perplexity_test]
+        result.append([perplexity, perplexity_valid, perplexity_test])
         if _e % 50 == 0:
             model.saver.save(model.sess, "%s/progress-%i-model.ckpt" % (save_path, _e))
             np.savez("%s/progress-%i-acc.npz" % (save_path, _e), loss=np.array(result))
@@ -100,24 +113,41 @@ def train(epoch, model,
     np.savez("%s/statistics.npz" % save_path, loss=np.array(result))
 
 
+def get_options(parser):
+    share_param = {'nargs': '?', 'action': 'store', 'const': None, 'choices': None, 'metavar': None}
+    parser.add_argument('-e', '--epoch', help='Epoch (default: 10)', default=10, type=int, **share_param)
+    parser.add_argument('-b', '--batch', help='Batch (default: 20)', default=20, type=int, **share_param)
+    parser.add_argument('-s', '--step', help='Num steps (default: 20)', default=20, type=int, **share_param)
+    parser.add_argument('-lr', '--lr', help='Learning rate (default: 1)', default=1.0, type=float, **share_param)
+    parser.add_argument('-c', '--clip', help='Gradient clipping. (default: 5)', default=5.0, type=float, **share_param)
+    parser.add_argument('-k', '--keep', help='Keep rate. (default: 1.0)', default=1.0, type=float, **share_param)
+    parser.add_argument('-ln', '--ln', help='Layer norm. (default: False)', default=False, type=bool, **share_param)
+    parser.add_argument('-bn', '--norm', help='Decay for batch normalization. if batch is 100, 0.95 (default: None)',
+                        default=None, type=float, **share_param)
+    parser.add_argument('-d', '--decay_lr', help='Decay index for learning rate (default: 1.0)',
+                        default=1.0, type=float, **share_param)
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
     # Ignore warning message by tensor flow
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-    _batch_size = 20
-    _num_steps = 35
+    _parser = argparse.ArgumentParser(description='This script is ...', formatter_class=argparse.RawTextHelpFormatter)
+    args = get_options(_parser)
+    path = "./log/%s" % "_".join(["_".join([key, str(value)]) for key, value in vars(args).items()])
 
     raw_train, raw_validation, raw_test, vocab = ptb_raw_data("./simple-examples/data")
 
     iterators = dict()
     for raw_data, key in zip([raw_train, raw_validation, raw_test],
                              ["iter_train_data", "iter_valid_data", "iter_test_data"]):
-        iterators[key] = BatchFeeder(batch_size=_batch_size, num_steps=_num_steps, sequence=raw_data)
+        iterators[key] = BatchFeeder(batch_size=args.batch, num_steps=args.step, sequence=raw_data)
 
     config = {
-        "num_steps": _num_steps, "vocab_size": vocab,
-        "embedding_size": 256, "n_hidden_1": 256, "n_hidden_2": 256, "n_hidden_3": 256
-    }
-    _model = LSTMLanguageModel(config, learning_rate=0.01)
+        "num_steps": args.step, "vocab_size": vocab,
+        "embedding_size": 200, "n_hidden_1": 200, "n_hidden_2": 200
+        }
 
-    train(20, _model, test=False, **iterators)
+    _model = LSTMLanguageModel(config, learning_rate=args.lr, gradient_clip=args.clip)
+    train(args.epoch, _model, verbose=True, save_path=path, **iterators)

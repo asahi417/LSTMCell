@@ -7,6 +7,7 @@ This reader is based on https://github.com/tensorflow/models/blob/master/tutoria
 import collections
 import os
 import tensorflow as tf
+import numpy as np
 
 
 def _read_words(filename):
@@ -67,41 +68,49 @@ class BatchFeeder:
 
     def __init__(self, batch_size, num_steps, sequence):
         """
-        :param int batch_size: batch size
+        :param int batch_size: data number in a batch
         :param int num_steps: truncation size of sequence
         :param list sequence: list of index (int) of word
         """
         self._index = 0
         self._batch_size = batch_size
         self._num_steps = num_steps
+        seq = np.array(sequence, dtype=np.int32)
 
-        self._seq = sequence
-
-        self._n = len(self._seq)
+        self._n = len(seq)
+        # batch_number: number of batch chunk in a full sequence
+        batch_number = self._n // self._batch_size
+        # sequence -> data
+        # [1, 2, ..., 10] -> [[1, 2], [3, 4], ..., [9, 10]] for batch size (5)
+        self._data = np.zeros([self._batch_size, batch_number], dtype=np.int32)
+        for i in range(self._batch_size):
+            self._data[i] = seq[batch_number * i:batch_number * (i + 1)]
+        # iteration number of batch data in an epoch
+        self._iteration_number = (batch_number - 1) // self._num_steps
 
     def __iter__(self):
         return self
 
     def __next__(self):
         """ next batch for train data (size is `self._batch_size`)
-        :return (inputs, outputs): list (batch, num_steps)
+        loop for self._iteration_number
+        :return (inputs, outputs): list (batch_size, num_steps)
         """
-
-        if self._index + self._batch_size + self._num_steps >= len(self._seq):
+        if self._index == self._iteration_number:
             self._index = 0
             raise StopIteration
-
-        inputs, outputs = [], []
-        for _b in range(self._batch_size):
-            self._index += _b
-            inputs.append(self._seq[self._index:self._index + self._num_steps])
-            outputs.append(self._seq[self._index + 1:self._index + self._num_steps + 1])
+        x = self._data[:, self._index * self._num_steps:(self._index + 1) * self._num_steps]
+        y = self._data[:, self._index * self._num_steps + 1:(self._index + 1) * self._num_steps + 1]
         self._index += 1
-        return inputs, outputs
+        return x, y
 
     @property
     def data_size(self):
         return self._n
+
+    @property
+    def iteration_number(self):
+        return self._iteration_number
 
     @property
     def num_steps(self):
@@ -113,12 +122,11 @@ class BatchFeeder:
 
 
 if __name__ == '__main__':
-    a = [i for i in range(10)]
-    bf = BatchFeeder(2, 3, a)
+    bf = BatchFeeder(batch_size=5, num_steps=6, sequence=[i for i in range(100)])
     print("first")
     for i in bf:
         print(i)
 
-    print("second")
-    for i in bf:
-        print(i)
+    # print("second")
+    # for i in bf:
+    #     print(i)
