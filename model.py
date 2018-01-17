@@ -5,6 +5,7 @@ from tensorflow.contrib.layers import xavier_initializer
 
 import numpy as np
 
+from cells import HyperLSTMCell
 from cells import CustomLSTMCell
 
 
@@ -40,7 +41,9 @@ class LSTMLanguageModel(object):
         - input -> LSTM x 3 -> output unit -> FC -> output
     """
 
-    def __init__(self, config, load_model=None,
+    def __init__(self, config,
+                 type_of_lstm=None,
+                 load_model=None,
                  learning_rate=0.0001,
                  gradient_clip=None,
                  batch_norm=None,
@@ -52,8 +55,7 @@ class LSTMLanguageModel(object):
             num_steps: truncated sequence size
             vocab_size: vocabulary size
             embedding_size: embedding dimension
-            n_hidden_1:
-            n_hidden_2:
+            n_hidden: number of hidden unit
         :param float learning_rate: default 0.001
         :param float gradient_clip: (option) clipping gradient value
         :param float keep_prob: (option) keep probability of dropout
@@ -70,6 +72,14 @@ class LSTMLanguageModel(object):
         self._layer_norm = layer_norm
         self._keep_prob = keep_prob
         self._weight_decay = weight_decay
+        if type_of_lstm == "hypernets":
+            self._LSTMCell = HyperLSTMCell
+            self._params = dict(
+                num_units=self._config["n_hidden"], layer_norm=self._layer_norm,
+                num_units_hyper=self._config["n_hidden_hyper"], embedding_dim=self._config["n_embedding_hyper"])
+        else:
+            self._LSTMCell = CustomLSTMCell
+            self._params = dict(num_units=self._config["n_hidden"], layer_norm=self._layer_norm)
 
         # Create network
         self._build_model()
@@ -103,9 +113,8 @@ class LSTMLanguageModel(object):
         with tf.variable_scope("stacked_lstm"):
             cells = []
             for i in range(1, 3):
-                cell = CustomLSTMCell(num_units=self._config["n_hidden_%i" % i], dropout_keep_prob=__keep_prob_r,
-                                      layer_norm=self._layer_norm)
-                # cell = tf.nn.rnn_cell.BasicLSTMCell(num_units=self._config["n_hidden_%i" % i], forget_bias=0.0)
+                self._params["dropout_keep_prob"] = __keep_prob_r
+                cell = self._LSTMCell(**self._params)
                 cells.append(cell)
             cells = tf.nn.rnn_cell.MultiRNNCell(cells)
 
@@ -123,14 +132,14 @@ class LSTMLanguageModel(object):
             # so reshape to treat sequence direction as batch direction
             # output shape: (batch, num_steps, last hidden size) -> (batch x num_steps, last hidden size)
             outputs = tf.stack(outputs, axis=1)
-            outputs = tf.reshape(outputs, [-1, self._config["n_hidden_2"]])
+            outputs = tf.reshape(outputs, [-1, self._config["n_hidden"]])
 
             self._final_state = state  # currently, not used.
 
         # Prediction and Loss
         with tf.variable_scope("fully_connected"):
             layer = tf.nn.dropout(outputs, __keep_prob)
-            weight = [self._config["n_hidden_2"], self._config["vocab_size"]]
+            weight = [self._config["n_hidden"], self._config["vocab_size"]]
             if self._batch_norm_decay is not None:
                 layer = _full_connected(layer, weight, bias=False, scope="fc")
                 logit = tf.contrib.layers.batch_norm(layer, decay=self._batch_norm_decay, is_training=self.is_train,
@@ -170,7 +179,7 @@ class LSTMLanguageModel(object):
         self._n_var = np.prod(t_vars[0].get_shape().as_list())
         for var in t_vars[1:]:
             sh = var.get_shape().as_list()
-            # print(var.name, sh)
+            print(var.name, sh)
             self._n_var += np.prod(sh)
         print(self._n_var, 'total variables')
 
@@ -208,13 +217,14 @@ class LSTMLanguageModel(object):
 
 if __name__ == '__main__':
     import os
-
     # Ignore warning message by tensor flow
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
     net = {
         "num_steps": 35,
         "vocab_size": 10000,
         "embedding_size": 200,
-        "n_hidden_1": 200, "n_hidden_2": 200
+        "n_hidden_hyper": 100, "n_embedding_hyper": 4,
+        "n_hidden": 200
     }
-    LSTMLanguageModel(net)  # gradient_clip=10, batch_norm=0.95, keep_prob=0.8, layer_norm=True)
+    LSTMLanguageModel(net, type_of_lstm="hypernets", layer_norm=True)  # gradient_clip=10, batch_norm=0.95, keep_prob=0.8, layer_norm=True)

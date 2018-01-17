@@ -73,14 +73,14 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
     def output_size(self):
         return self._num_units
 
-    def _layer_normalization(self, inputs, scope):
+    def _layer_normalization(self, inputs, scope=None):
         """
         :param inputs: (batch, shape)
         :param scope:
         :return : layer normalized inputs (batch, shape)
         """
         shape = inputs.get_shape()[-1:]
-        with vs.variable_scope(scope):
+        with vs.variable_scope(scope or "layer_norm"):
             # Initialize beta and gamma for use by layer_norm.
             g = vs.get_variable("gain", shape=shape, initializer=init_ops.constant_initializer(self._g))  # (shape,)
             s = vs.get_variable("shift", shape=shape, initializer=init_ops.constant_initializer(self._b))  # (shape,)
@@ -88,15 +88,17 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
         normalized_input = (inputs - m) / math_ops.sqrt(v + _EPSILON)  # (batch, shape)
         return normalized_input * g + s
 
-    def _linear(self, args):
-        out_size = 4 * self._num_units
-        projection_size = args.get_shape()[-1]
-        weights = vs.get_variable("kernel", [projection_size, out_size], initializer=xavier_initializer(seed=0))
-        out = math_ops.matmul(args, weights)
-        if not self._layer_norm:
-            bias = vs.get_variable("bias", initializer=[0.0] * out_size)
-            out = nn_ops.bias_add(out, bias)
-        return out
+    @staticmethod
+    def _linear(x, weight_shape, bias=True, scope=None):
+        """ linear projection (weight_shape: input size, output size) """
+        with vs.variable_scope(scope or "linear"):
+            w = vs.get_variable("kernel", shape=weight_shape, initializer=xavier_initializer(seed=0))
+            x = math_ops.matmul(x, w)
+            if bias:
+                b = vs.get_variable("bias", initializer=[0.0] * weight_shape[-1])
+                return nn_ops.bias_add(x, b)
+            else:
+                return x
 
     def call(self, inputs, state):
         """Long short-term memory cell (LSTM).
@@ -116,14 +118,14 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
 
         c, h = state  # memory cell, hidden unit
         args = array_ops.concat([inputs, h], 1)
-        concat = self._linear(args)
+        concat = self._linear(args, [args.get_shape()[-1], 4 * self._num_units])
 
         i, j, f, o = array_ops.split(value=concat, num_or_size_splits=4, axis=1)
         if self._layer_norm:
-            i = self._layer_normalization(i, "input")
-            j = self._layer_normalization(j, "transform")
-            f = self._layer_normalization(f, "forget")
-            o = self._layer_normalization(o, "output")
+            i = self._layer_normalization(i, "layer_norm_i")
+            j = self._layer_normalization(j, "layer_norm_j")
+            f = self._layer_normalization(f, "layer_norm_f")
+            o = self._layer_normalization(o, "layer_norm_o")
         g = self._activation(j)  # gating
 
         # recurrent dropout (dropout gating cell)
@@ -132,12 +134,12 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
 
         gated_in = math_ops.sigmoid(i) * g
         memory = c * math_ops.sigmoid(f + self._forget_bias)
-        new_c = memory + gated_in
 
         # layer normalization for memory cell (original paper didn't use for memory cell).
         # if self._layer_norm:
         #     new_c = self._layer_normalization(new_c, "state")
 
+        new_c = memory + gated_in
         new_h = self._activation(new_c) * math_ops.sigmoid(o)
         new_state = rnn_cell_impl.LSTMStateTuple(new_c, new_h)
         return new_h, new_state

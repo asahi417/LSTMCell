@@ -115,14 +115,16 @@ def train(epoch, model,
 
 def get_options(parser):
     share_param = {'nargs': '?', 'action': 'store', 'const': None, 'choices': None, 'metavar': None}
+    parser.add_argument('lstm', help='LSTM type. (default: None)', default=None, type=str, **share_param)
     parser.add_argument('-e', '--epoch', help='Epoch (default: 10)', default=10, type=int, **share_param)
     parser.add_argument('-b', '--batch', help='Batch (default: 20)', default=20, type=int, **share_param)
     parser.add_argument('-s', '--step', help='Num steps (default: 20)', default=20, type=int, **share_param)
     parser.add_argument('-lr', '--lr', help='Learning rate (default: 1)', default=1.0, type=float, **share_param)
     parser.add_argument('-c', '--clip', help='Gradient clipping. (default: 5)', default=5.0, type=float, **share_param)
     parser.add_argument('-k', '--keep', help='Keep rate. (default: 1.0)', default=1.0, type=float, **share_param)
+    parser.add_argument('-wd', '--wd', help='Weight decay. (default: 0.0)', default=0.0, type=float, **share_param)
     parser.add_argument('-ln', '--ln', help='Layer norm. (default: False)', default=False, type=bool, **share_param)
-    parser.add_argument('-bn', '--norm', help='Decay for batch normalization. if batch is 100, 0.95 (default: None)',
+    parser.add_argument('-bn', '--bn', help='Decay for batch normalization. if batch is 100, 0.95 (default: None)',
                         default=None, type=float, **share_param)
     parser.add_argument('-d', '--decay_lr', help='Decay index for learning rate (default: 1.0)',
                         default=1.0, type=float, **share_param)
@@ -135,6 +137,7 @@ if __name__ == '__main__':
 
     _parser = argparse.ArgumentParser(description='This script is ...', formatter_class=argparse.RawTextHelpFormatter)
     args = get_options(_parser)
+
     path = "./log/%s" % "_".join(["_".join([key, str(value)]) for key, value in vars(args).items()])
 
     raw_train, raw_validation, raw_test, vocab = ptb_raw_data("./simple-examples/data")
@@ -146,8 +149,16 @@ if __name__ == '__main__':
 
     config = {
         "num_steps": args.step, "vocab_size": vocab,
-        "embedding_size": 200, "n_hidden_1": 200, "n_hidden_2": 200
+        "n_hidden_hyper": 32, "n_embedding_hyper": 4,  # for hypernets
+        "embedding_size": 200, "n_hidden": 200
         }
 
-    _model = LSTMLanguageModel(config, learning_rate=args.lr, gradient_clip=args.clip)
-    train(args.epoch, _model, verbose=True, save_path=path, **iterators)
+    _model = LSTMLanguageModel(config,
+                               type_of_lstm=args.lstm,
+                               learning_rate=args.lr,
+                               gradient_clip=args.clip,
+                               batch_norm=args.bn,
+                               keep_prob=args.keep,
+                               weight_decay=args.wd,
+                               layer_norm=args.ln)
+    train(args.epoch, _model, verbose=True, save_path=path, lr_decay=args.decay_lr, **iterators)
