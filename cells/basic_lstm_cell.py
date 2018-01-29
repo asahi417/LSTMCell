@@ -15,8 +15,6 @@ from tensorflow.python.ops import init_ops
 from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import nn_impl
 
-from tensorflow.contrib.layers import xavier_initializer
-
 _EPSILON = 10**-4
 
 
@@ -33,12 +31,14 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
 
     - layer normalization
     - recurrent dropout
+    - variational dropout (per-sample masking version)
+
 
     """
 
     def __init__(self, num_units, forget_bias=1.0, activation=None, reuse=None,
                  layer_norm=False, norm_shift=0.0, norm_gain=1.0,  # layer normalization
-                 dropout_keep_prob=1.0, dropout_prob_seed=None  # recurrent dropout
+                 dropout_keep_prob=1.0, dropout_prob_seed=None, recurrent_dropout=True  # dropout
                  ):
         """Initialize the basic LSTM cell.
         Args:
@@ -50,8 +50,12 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
           reuse: (optional) Python boolean describing whether to reuse variables
             in an existing scope.  If not `True`, and the existing scope already has
             the given variables, an error is raised.
-          When restoring from CudnnLSTM-trained checkpoints, must use
-          CudnnCompatibleLSTMCell instead.
+          layer_norm: (optional) If True, apply layer normalization.
+          norm_shift: (optional) Shift parameter for layer normalization.
+          norm_gain: (optional) Gain parameter for layer normalization.
+          dropout_keep_prob: (optional)
+          dropout_prob_seed: (optional)
+          recurrent_dropout: (optional) if True, use recurrent dropout, else use variational dropout for recurrent unit.
         """
         super(CustomLSTMCell, self).__init__(_reuse=reuse)
         self._num_units = num_units
@@ -64,6 +68,7 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
 
         self._keep_prob = dropout_keep_prob
         self._seed = dropout_prob_seed
+        self._recurrent_dropout = recurrent_dropout  # if False -> Variational Dropput
 
     @property
     def state_size(self):
@@ -92,7 +97,7 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
     def _linear(x, weight_shape, bias=True, scope=None):
         """ linear projection (weight_shape: input size, output size) """
         with vs.variable_scope(scope or "linear"):
-            w = vs.get_variable("kernel", shape=weight_shape, initializer=xavier_initializer(seed=0))
+            w = vs.get_variable("kernel", shape=weight_shape)
             x = math_ops.matmul(x, w)
             if bias:
                 b = vs.get_variable("bias", initializer=[0.0] * weight_shape[-1])
@@ -128,9 +133,15 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
             o = self._layer_normalization(o, "layer_norm_o")
         g = self._activation(j)  # gating
 
-        # recurrent dropout (dropout gating cell)
+        # dropout (recurrent or variational)
         if (not isinstance(self._keep_prob, float)) or self._keep_prob < 1:
-            g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
+            if self._recurrent_dropout:  # recurrent dropout
+                g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
+            else:  # variational dropout
+                i = nn_ops.dropout(i, self._keep_prob, seed=self._seed)
+                g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
+                f = nn_ops.dropout(f, self._keep_prob, seed=self._seed)
+                o = nn_ops.dropout(o, self._keep_prob, seed=self._seed)
 
         gated_in = math_ops.sigmoid(i) * g
         memory = c * math_ops.sigmoid(f + self._forget_bias)

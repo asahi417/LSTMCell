@@ -1,0 +1,151 @@
+
+from tensorflow.python.ops import rnn_cell_impl
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import math_ops
+from tensorflow.python.ops import variable_scope as vs
+from tensorflow.python.ops import init_ops
+from tensorflow.python.ops import nn_ops
+from tensorflow.python.ops import nn_impl
+
+_EPSILON = 10**-4
+
+
+class CustomRNNCell(rnn_cell_impl.RNNCell):
+    """Customized LSTM with several additional regularization
+    Edit `BasicLSTMCell` of tensorflow.
+    The implementation is based on: http://arxiv.org/abs/1409.2329.
+    We add forget_bias (default: 1) to the biases of the forget gate in order to
+    reduce the scale of forgetting in the beginning of the training.
+    It does not allow cell clipping, a projection layer, and does not
+    use peep-hole connections: it is the basic baseline.
+    For advanced models, please use the full @{tf.nn.rnn_cell.LSTMCell}
+    that follows.
+
+    - variational dropout (inputs and state: currently same dropout prob,  per-sample masking)
+    - recurrent highway network
+    - layer normalization
+
+    """
+
+    def __init__(self, num_units, activation=None, reuse=None,
+                 layer_norm=False, norm_shift=0.0, norm_gain=1.0,  # layer normalization
+                 dropout_keep_prob=1.0, dropout_prob_seed=None,  # dropout
+                 recurrent_highway=False, recurrence_depth=4  # recurrent highway
+                 ):
+        """Initialize the basic RNN cell.
+        Args:
+          num_units: int, The number of units in the LSTM cell.
+          activation: Activation function of the inner states.  Default: `tanh`.
+          reuse: (optional) Python boolean describing whether to reuse variables
+            in an existing scope.  If not `True`, and the existing scope already has
+            the given variables, an error is raised.
+          layer_norm: (optional) If True, apply layer normalization.
+          norm_shift: (optional) Shift parameter for layer normalization.
+          norm_gain: (optional) Gain parameter for layer normalization.
+          dropout_keep_prob: (optional) keep probability for variational dropout
+                             if list, (input, state), else use same float value
+          dropout_prob_seed: (optional)
+
+        """
+        super(CustomRNNCell, self).__init__(_reuse=reuse)
+        self._num_units = num_units
+        self._activation = activation or math_ops.tanh
+
+        self._layer_norm = layer_norm
+        self._g = norm_gain
+        self._b = norm_shift
+
+        self._keep_prob_in = dropout_keep_prob
+        self._keep_prob_h = dropout_keep_prob
+        self._seed = dropout_prob_seed
+
+        self._highway = recurrent_highway
+        self._recurrence_depth = recurrence_depth
+
+    @property
+    def state_size(self):
+        return self._num_units
+
+    @property
+    def output_size(self):
+        return self._num_units
+
+    def _layer_normalization(self, inputs, scope=None):
+        """
+        :param inputs: (batch, shape)
+        :param scope:
+        :return : layer normalized inputs (batch, shape)
+        """
+        shape = inputs.get_shape()[-1:]
+        with vs.variable_scope(scope or "layer_norm"):
+            # Initialize beta and gamma for use by layer_norm.
+            g = vs.get_variable("gain", shape=shape, initializer=init_ops.constant_initializer(self._g))  # (shape,)
+            s = vs.get_variable("shift", shape=shape, initializer=init_ops.constant_initializer(self._b))  # (shape,)
+        m, v = nn_impl.moments(inputs, [1], keep_dims=True)  # (batch,)
+        normalized_input = (inputs - m) / math_ops.sqrt(v + _EPSILON)  # (batch, shape)
+        return normalized_input * g + s
+
+    @staticmethod
+    def _linear(x, weight_shape, bias=True, scope=None):
+        """ linear projection (weight_shape: input size, output size) """
+        with vs.variable_scope(scope or "linear"):
+            w = vs.get_variable("kernel", shape=weight_shape)
+            x = math_ops.matmul(x, w)
+            if bias:
+                b = vs.get_variable("bias", initializer=[0.0] * weight_shape[-1])
+                return nn_ops.bias_add(x, b)
+            else:
+                return x
+
+    def call(self, inputs, state):
+        """ RNN cell """
+        # variational dropout for hidden unit (recurrent unit)
+        if (not isinstance(self._keep_prob_h, float)) or self._keep_prob_h < 1:
+            state = nn_ops.dropout(state, self._keep_prob_h, seed=self._seed)
+
+        # variational dropout for input
+        if (not isinstance(self._keep_prob_in, float)) or self._keep_prob_in < 1:
+            inputs = nn_ops.dropout(inputs, self._keep_prob_in, seed=self._seed)
+
+        if self._highway or self._recurrence_depth > 1:
+            # Recurrent Highway Cell (state is last intermediate output of previous time step)
+            inter_out = state
+            for r in range(1, self._recurrence_depth+1):
+                with vs.variable_scope("recurrent_depth_%i" % r):
+                    if r == 1:
+                        args = array_ops.concat([inputs, inter_out], 1)
+                        h = self._linear(args, [args.get_shape()[-1], self._num_units], scope="h")
+                        t = self._linear(args, [args.get_shape()[-1], self._num_units], scope="t")
+                        c = self._linear(args, [args.get_shape()[-1], self._num_units], scope="c")
+                    else:
+                        h = self._linear(inter_out, [self._num_units, self._num_units], scope="h")
+                        t = self._linear(inter_out, [self._num_units, self._num_units], scope="t")
+                        c = self._linear(inter_out, [self._num_units, self._num_units], scope="c")
+
+                    # layer normalization
+                    if self._layer_norm:
+                        h = self._layer_normalization(h, "layer_norm_h")
+                        t = self._layer_normalization(t, "layer_norm_t")
+                        c = self._layer_normalization(c, "layer_norm_c")
+
+                    h = self._activation(h)
+                    t = math_ops.sigmoid(t)
+                    c = math_ops.sigmoid(c)
+                    inter_out = h * t + inter_out * c
+            output = inter_out
+        else:
+            # Most basic RNN: output = new_state = act(W * input + U * state + B).
+            args = array_ops.concat([inputs, state], 1)
+            linear = self._linear(args, [args.get_shape()[-1], self._num_units])
+
+            # layer normalization
+            if self._layer_norm:
+                linear = self._layer_normalization(linear, "layer_norm")
+
+            output = self._activation(linear)
+        return output, output
+
+
+if __name__ == '__main__':
+    _cell = CustomRNNCell(256, dropout_keep_prob=0.75, recurrent_highway=True)
+

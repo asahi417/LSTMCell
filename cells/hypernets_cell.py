@@ -15,14 +15,15 @@ from tensorflow.python.ops import init_ops
 from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import nn_impl
 
-from tensorflow.contrib.layers import xavier_initializer
-
 from . import CustomLSTMCell
 
 _EPSILON = 10**-4
 
 
 class HyperLSTMCell(rnn_cell_impl.RNNCell):
+    """
+    Hypernets cell with recurrent dropout and layer normalization.
+    """
 
     def __init__(self, num_units, num_units_hyper, embedding_dim,
                  forget_bias=1.0, activation=None, reuse=None,
@@ -78,7 +79,7 @@ class HyperLSTMCell(rnn_cell_impl.RNNCell):
     def _linear(x, weight_shape, bias=True, scope=None):
         """ linear projection (weight_shape: input size, output size) """
         with vs.variable_scope(scope or "linear"):
-            w = vs.get_variable("kernel", shape=weight_shape, initializer=xavier_initializer(seed=0))
+            w = vs.get_variable("kernel", shape=weight_shape)
             x = math_ops.matmul(x, w)
             if bias:
                 b = vs.get_variable("bias", initializer=[0.0] * weight_shape[-1])

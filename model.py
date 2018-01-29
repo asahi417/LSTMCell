@@ -1,12 +1,11 @@
 import tensorflow as tf
 from tensorflow.python.util import nest
 from tensorflow.python.ops import array_ops
-from tensorflow.contrib.layers import xavier_initializer
-
 import numpy as np
 
 from cells import HyperLSTMCell
 from cells import CustomLSTMCell
+from cells import CustomRNNCell
 
 
 def _batch_size(inputs):
@@ -16,14 +15,14 @@ def _batch_size(inputs):
     return array_ops.shape(inputs)[0]
 
 
-def _full_connected(x, weight_shape, scope=None, bias=True, initializer=xavier_initializer(seed=0)):
+def _full_connected(x, weight_shape, scope=None, bias=True):
     """ fully connected layer
     - weight_shape: input size, output size
     - priority: batch norm (remove bias) > dropout and bias term
     """
     # scope = "fully connected" if scope is None else scope
-    with tf.variable_scope(scope or "fully_connected"):
-        w = tf.get_variable("weight", shape=weight_shape, initializer=initializer, dtype=tf.float32)
+    with tf.variable_scope(scope or "fully_connected", reuse=None):
+        w = tf.get_variable("weight", shape=weight_shape, dtype=tf.float32)
         x = tf.matmul(x, w)
         if bias:
             b = tf.get_variable("bias", initializer=[0.0] * weight_shape[-1])
@@ -33,22 +32,19 @@ def _full_connected(x, weight_shape, scope=None, bias=True, initializer=xavier_i
 
 
 class LSTMLanguageModel(object):
-    """ LSTM based Neural Language Model with following regularization.
-            - weight decay
-            - recurrent dropout for LSTM
-            - layer norm for LSTM
-            - batch norm for full connect
-        - input -> LSTM x 3 -> output unit -> FC -> output
-    """
+    """ Neural Language Model with following regularization."""
 
     def __init__(self, config,
+                 ini_scale=0.05,
                  type_of_lstm=None,
                  load_model=None,
                  learning_rate=0.0001,
                  gradient_clip=None,
                  batch_norm=None,
                  keep_prob=1.0,
+                 keep_prob_r=1.0,
                  weight_decay=0.0,
+                 weight_tying=False,
                  layer_norm=False):
         """
         :param dict config: network config. Suppose dictionary with following elements
@@ -59,7 +55,8 @@ class LSTMLanguageModel(object):
         :param float learning_rate: default 0.001
         :param float gradient_clip: (option) clipping gradient value
         :param float keep_prob: (option) keep probability of dropout
-        :param float weight_decay: (option) weight_decay (L2 regularization)
+        :param float weight_decay: (option) weight decay (L2 regularization)
+        :param float weight_tying: (option) weight tying
         :param bool layer_norm: (option) If True, use layer normalization for LSTM cell
         :param float batch_norm: (option) decay for batch norm for full connected layer. 0.95 is preferred.
                                  https://www.tensorflow.org/api_docs/python/tf/contrib/layers/batch_norm
@@ -71,17 +68,27 @@ class LSTMLanguageModel(object):
         self._batch_norm_decay = batch_norm
         self._layer_norm = layer_norm
         self._keep_prob = keep_prob
+        self._keep_prob_r = keep_prob_r
         self._weight_decay = weight_decay
+        self._weight_tying = weight_tying
+        self._type_of_lstm = type_of_lstm
         if type_of_lstm == "hypernets":
             self._LSTMCell = HyperLSTMCell
             self._params = dict(
                 num_units=self._config["n_hidden"], layer_norm=self._layer_norm,
                 num_units_hyper=self._config["n_hidden_hyper"], embedding_dim=self._config["n_embedding_hyper"])
+        elif type_of_lstm == "rhn":
+            self._LSTMCell = CustomRNNCell
+            self._params = dict(
+                num_units=self._config["n_hidden"], layer_norm=self._layer_norm,
+                recurrent_highway=True, recurrence_depth=self._config["recurrence_depth"])
         else:
             self._LSTMCell = CustomLSTMCell
             self._params = dict(num_units=self._config["n_hidden"], layer_norm=self._layer_norm)
 
         # Create network
+        initializer = tf.random_uniform_initializer(-ini_scale, ini_scale, seed=0)
+        # with tf.variable_scope("model", initializer=initializer, reuse=None):
         self._build_model()
         # Launch the session
         self.sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
@@ -98,7 +105,7 @@ class LSTMLanguageModel(object):
 
         self.is_train = tf.placeholder_with_default(False, [])
         __keep_prob = tf.where(self.is_train, self._keep_prob, 1.0)
-        __keep_prob_r = tf.where(self.is_train, self._keep_prob, 1.0)
+        __keep_prob_r = tf.where(self.is_train, self._keep_prob_r, 1.0)
         __weight_decay = tf.where(self.is_train, self._weight_decay, 0)
 
         # onehot and embedding
@@ -109,14 +116,20 @@ class LSTMLanguageModel(object):
 
         inputs = tf.nn.dropout(inputs, __keep_prob)
 
-        # build stacked LSTM instance
-        with tf.variable_scope("stacked_lstm"):
-            cells = []
-            for i in range(1, 3):
+        with tf.variable_scope("RNNCell"):
+            if self._type_of_lstm == "rhn":
+                # build single RNN layer
                 self._params["dropout_keep_prob"] = __keep_prob_r
-                cell = self._LSTMCell(**self._params)
-                cells.append(cell)
-            cells = tf.nn.rnn_cell.MultiRNNCell(cells)
+                cells = self._LSTMCell(**self._params)
+
+            else:
+                # build stacked LSTM layer
+                cells = []
+                for i in range(1, 3):
+                    self._params["dropout_keep_prob"] = __keep_prob_r
+                    cell = self._LSTMCell(**self._params)
+                    cells.append(cell)
+                cells = tf.nn.rnn_cell.MultiRNNCell(cells)
 
             outputs = []
             self._initial_state = cells.zero_state(batch_size=batch_size, dtype=tf.float32)
@@ -128,24 +141,25 @@ class LSTMLanguageModel(object):
                 # print(cell_output.shape)
                 outputs.append(cell_output)
 
-            # weight is shared sequence direction (in addition to batch direction),
-            # so reshape to treat sequence direction as batch direction
-            # output shape: (batch, num_steps, last hidden size) -> (batch x num_steps, last hidden size)
-            outputs = tf.stack(outputs, axis=1)
-            outputs = tf.reshape(outputs, [-1, self._config["n_hidden"]])
+        # weight is shared sequence direction (in addition to batch direction),
+        # so reshape to treat sequence direction as batch direction
+        # output shape: (batch, num_steps, last hidden size) -> (batch x num_steps, last hidden size)
+        outputs = tf.stack(outputs, axis=1)
+        outputs = tf.reshape(outputs, [-1, self._config["n_hidden"]])
 
-            self._final_state = state  # currently, not used.
+        outputs = tf.nn.dropout(outputs, __keep_prob)
+
+        self._final_state = state
 
         # Prediction and Loss
-        with tf.variable_scope("fully_connected"):
-            layer = tf.nn.dropout(outputs, __keep_prob)
+        with tf.variable_scope("fully_connected", reuse=None):
             weight = [self._config["n_hidden"], self._config["vocab_size"]]
             if self._batch_norm_decay is not None:
-                layer = _full_connected(layer, weight, bias=False, scope="fc")
+                layer = _full_connected(outputs, weight, bias=False, scope="fc")
                 logit = tf.contrib.layers.batch_norm(layer, decay=self._batch_norm_decay, is_training=self.is_train,
                                                      updates_collections=None)
             else:
-                logit = _full_connected(layer, weight, bias=True, scope="fc")
+                logit = _full_connected(outputs, weight, bias=True, scope="fc")
             # Reshape logit to be a 3-D tensor for sequence loss
             logit = tf.reshape(logit, [batch_size, self._config["num_steps"], self._config["vocab_size"]])
 
@@ -167,7 +181,7 @@ class LSTMLanguageModel(object):
             # Define optimizer and learning rate: lr = lr/lr_decay
             self.lr_decay = tf.placeholder_with_default(1.0, [])  # learning rate decay
             # optimizer = tf.train.AdamOptimizer(self._lr / self.lr_decay)
-            optimizer = tf.train.GradientDescentOptimizer(self._lr)
+            optimizer = tf.train.GradientDescentOptimizer(self._lr * self.lr_decay)
             if self._clip is not None:
                 _var = tf.trainable_variables()
                 grads, _ = tf.clip_by_global_norm(tf.gradients(self._loss, _var), self._clip)
@@ -225,6 +239,7 @@ if __name__ == '__main__':
         "vocab_size": 10000,
         "embedding_size": 200,
         "n_hidden_hyper": 100, "n_embedding_hyper": 4,
-        "n_hidden": 200
+        "n_hidden": 200,
+        "recurrence_depth": 4
     }
-    LSTMLanguageModel(net, type_of_lstm="hypernets", layer_norm=True)  # gradient_clip=10, batch_norm=0.95, keep_prob=0.8, layer_norm=True)
+    LSTMLanguageModel(net, keep_prob_r=0.75, type_of_lstm="rhn", layer_norm=False)  # gradient_clip=10, batch_norm=0.95, keep_prob=0.8, layer_norm=True)

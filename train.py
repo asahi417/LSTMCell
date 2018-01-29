@@ -1,3 +1,14 @@
+"""
+This script is to check the implementation of LSTM cells, by language modeling task for PTB corpus.
+Following parameter is fixed:
+    - Epoch: 100
+    - Learning rate: 0.5 (decay by 0.8 after 10 epoch)
+    - batch: 20
+    - back step: 35
+    - hidden unit: 650
+    - keep prob: 0.75 for embedding and output, 0.5 for recurrent state and input
+"""
+
 
 import os
 import logging
@@ -28,14 +39,12 @@ def _create_log(name):
     return logger
 
 
-def train(epoch, model,
-          iter_train_data,
-          iter_valid_data,
-          iter_test_data,
+def train(model, max_max_epoch,
+          iter_train_data, iter_valid_data, iter_test_data,
           save_path="./log", lr_decay=None, verbose=False):
     """ Train model based on mini-batch of input data.
 
-    :param int epoch:
+    :param int max_max_epoch: max epoch
     :param model: Model instance.
     :param iter_train_data: Data iterator.
     :param iter_valid_data: Data iterator.
@@ -47,30 +56,35 @@ def train(epoch, model,
 
     num_gpu = 0  # number of gpu
 
+    max_epoch = int(np.ceil(max_max_epoch / 10))
+
     # logger
     if not os.path.exists(save_path):
         os.makedirs(save_path, exist_ok=True)
     logger = _create_log("%s/log" % save_path)
-    logger.info(model.__doc__)
-    logger.info("train: epoch (%i), sequence length (%i), batch size(%i)" %
-                (epoch, iter_train_data.data_size, iter_train_data.batch_size))
+    # logger.info(model.__doc__)
+    logger.info("epoch (%i), sequence length (%i), batch size(%i), total variables(%i)" %
+                (max_max_epoch, iter_train_data.data_size, iter_train_data.batch_size, model.total_variable_number))
 
     # Initializing the tensor flow variables
     model.sess.run(tf.global_variables_initializer())
 
     initial_state = None
     result = []
-    for _e in range(epoch):
+    for _e in range(max_max_epoch):
 
         # Train
         length, loss = 0, 0.0
         start_time = time()
         for step, (_in, _out) in enumerate(iter_train_data):
             feed_dict = dict(((model.inputs, _in), (model.targets, _out), (model.is_train, True)))
+
             if initial_state is not None:
                 feed_dict[model.initial_state] = initial_state
-            if lr_decay is not None and lr_decay != 1.0:
-                feed_dict[model.lr_decay] = lr_decay ** (_e // 100)
+
+            if _e >= max_epoch:
+                feed_dict[model.lr_decay] = lr_decay
+
             val = model.sess.run([model.loss, model.final_state, model.train_op], feed_dict=feed_dict)
 
             loss += val[0]
@@ -93,41 +107,39 @@ def train(epoch, model,
             length += iter_train_data.num_steps
         perplexity_valid = np.exp(loss / length)
 
-        # Test
-        length, loss = 0, 0.0
-        for _in, _out in iter_test_data:
-            feed_dict = dict(((model.inputs, _in), (model.targets, _out), (model.is_train, False)))
-            val = model.sess.run([model.loss], feed_dict=feed_dict)
-            loss += val[0]
-            length += iter_train_data.num_steps
-        perplexity_test = np.exp(loss / length)
+        logger.info("epoch %i, perplexity: train %0.3f, valid %0.3f" % (_e, perplexity, perplexity_valid))
 
-        logger.info("epoch %i, perplexity: train %0.3f, valid %0.3f, test %0.3f"
-                    % (_e, perplexity, perplexity_valid, perplexity_test))
-
-        result.append([perplexity, perplexity_valid, perplexity_test])
+        result.append([perplexity, perplexity_valid])
         if _e % 50 == 0:
             model.saver.save(model.sess, "%s/progress-%i-model.ckpt" % (save_path, _e))
             np.savez("%s/progress-%i-acc.npz" % (save_path, _e), loss=np.array(result))
+
+    # Test
+    length, loss = 0, 0.0
+    for _in, _out in iter_test_data:
+        feed_dict = dict(((model.inputs, _in), (model.targets, _out), (model.is_train, False)))
+        val = model.sess.run([model.loss], feed_dict=feed_dict)
+        loss += val[0]
+        length += iter_train_data.num_steps
+    perplexity_test = np.exp(loss / length)
+
     model.saver.save(model.sess, "%s/model.ckpt" % save_path)
-    np.savez("%s/statistics.npz" % save_path, loss=np.array(result))
+    np.savez("%s/statistics.npz" % save_path, loss=np.array(result), perplexity_test=perplexity_test)
 
 
 def get_options(parser):
     share_param = {'nargs': '?', 'action': 'store', 'const': None, 'choices': None, 'metavar': None}
     parser.add_argument('lstm', help='LSTM type. (default: None)', default=None, type=str, **share_param)
-    parser.add_argument('-e', '--epoch', help='Epoch (default: 10)', default=10, type=int, **share_param)
-    parser.add_argument('-b', '--batch', help='Batch (default: 20)', default=20, type=int, **share_param)
-    parser.add_argument('-s', '--step', help='Num steps (default: 20)', default=20, type=int, **share_param)
-    parser.add_argument('-lr', '--lr', help='Learning rate (default: 1)', default=1.0, type=float, **share_param)
-    parser.add_argument('-c', '--clip', help='Gradient clipping. (default: 5)', default=5.0, type=float, **share_param)
-    parser.add_argument('-k', '--keep', help='Keep rate. (default: 1.0)', default=1.0, type=float, **share_param)
+    # parser.add_argument('-e', '--epoch', help='Epoch (default: 100)', default=100, type=int, **share_param)
+    # parser.add_argument('-b', '--batch', help='Batch (default: 20)', default=20, type=int, **share_param)
+    # parser.add_argument('-s', '--step', help='Num steps (default: 35)', default=35, type=int, **share_param)
+    # parser.add_argument('-lr', '--lr', help='Learning rate (default: 0.5)', default=0.5, type=float, **share_param)
+    # parser.add_argument('-c', '--clip', help='Gradient clip. (default: 10)', default=10, type=float, **share_param)
+    # parser.add_argument('-k', '--keep', help='Keep rate. (default: 1.0)', default=1.0, type=float, **share_param)
+    # parser.add_argument('-d', '--lrd', help='LR decay (default: 0.8)', default=0.8, type=float, **share_param)
     parser.add_argument('-wd', '--wd', help='Weight decay. (default: 0.0)', default=0.0, type=float, **share_param)
+    parser.add_argument('-wt', '--wt', help='Weight tying. (default: False)', default=False, type=float, **share_param)
     parser.add_argument('-ln', '--ln', help='Layer norm. (default: False)', default=False, type=bool, **share_param)
-    parser.add_argument('-bn', '--bn', help='Decay for batch normalization. if batch is 100, 0.95 (default: None)',
-                        default=None, type=float, **share_param)
-    parser.add_argument('-d', '--decay_lr', help='Decay index for learning rate (default: 1.0)',
-                        default=1.0, type=float, **share_param)
     return parser.parse_args()
 
 
@@ -145,20 +157,16 @@ if __name__ == '__main__':
     iterators = dict()
     for raw_data, key in zip([raw_train, raw_validation, raw_test],
                              ["iter_train_data", "iter_valid_data", "iter_test_data"]):
-        iterators[key] = BatchFeeder(batch_size=args.batch, num_steps=args.step, sequence=raw_data)
+        iterators[key] = BatchFeeder(batch_size=20, num_steps=35, sequence=raw_data)
 
     config = {
-        "num_steps": args.step, "vocab_size": vocab,
-        "n_hidden_hyper": 32, "n_embedding_hyper": 4,  # for hypernets
-        "embedding_size": 200, "n_hidden": 200
+        "num_steps": 35, "vocab_size": vocab,
+        "n_hidden_hyper": 64, "n_embedding_hyper": 4,  # for hypernets
+        "recurrent_highway": True, "recurrence_depth": 4,  # for RHN
+        "embedding_size": 650, "n_hidden": 650
         }
 
-    _model = LSTMLanguageModel(config,
-                               type_of_lstm=args.lstm,
-                               learning_rate=args.lr,
-                               gradient_clip=args.clip,
-                               batch_norm=args.bn,
-                               keep_prob=args.keep,
-                               weight_decay=args.wd,
-                               layer_norm=args.ln)
-    train(args.epoch, _model, verbose=True, save_path=path, lr_decay=args.decay_lr, **iterators)
+    _model = LSTMLanguageModel(config, learning_rate=0.5, gradient_clip=10, keep_prob_r=0.5, keep_prob=0.75,
+                               type_of_lstm=args.lstm, weight_decay=args.wd, weight_tying=args.wt, layer_norm=args.ln)
+
+    train(_model, max_max_epoch=100, verbose=True, save_path=path, lr_decay=0.8, **iterators)
