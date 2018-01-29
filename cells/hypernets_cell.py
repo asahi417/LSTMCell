@@ -22,13 +22,13 @@ _EPSILON = 10**-4
 
 class HyperLSTMCell(rnn_cell_impl.RNNCell):
     """
-    Hypernets cell with recurrent dropout and layer normalization.
+    Hypernets cell with recurrent (variational) dropout and layer normalization.
     """
 
     def __init__(self, num_units, num_units_hyper, embedding_dim,
                  forget_bias=1.0, activation=None, reuse=None,
                  layer_norm=False, norm_shift=0.0, norm_gain=1.0,  # layer normalization
-                 dropout_keep_prob=1.0, dropout_prob_seed=None  # recurrent dropout
+                 dropout_keep_prob=1.0, dropout_prob_seed=None, recurrent_dropout=True  # dropout
                  ):
         """ Initialize the Hyper LSTM cell.
         :param int num_units: The number of units in the LSTM cell.
@@ -46,6 +46,8 @@ class HyperLSTMCell(rnn_cell_impl.RNNCell):
         :param float norm_shift: Layer normalization (shift)
         :param float norm_gain: Layer normalization (gain)
         :param float dropout_keep_prob: Recurrent dropout
+        :param recurrent_dropout: (optional) if True, use recurrent dropout,
+                                    else use variational dropout for recurrent unit.
         :param dropout_prob_seed:
         """
         super(HyperLSTMCell, self).__init__(_reuse=reuse)
@@ -59,6 +61,7 @@ class HyperLSTMCell(rnn_cell_impl.RNNCell):
         self._g = norm_gain
         self._b = norm_shift
 
+        self._recurrent_dropout = recurrent_dropout
         self._keep_prob = dropout_keep_prob
         self._seed = dropout_prob_seed
 
@@ -173,7 +176,13 @@ class HyperLSTMCell(rnn_cell_impl.RNNCell):
 
         # recurrent dropout (dropout gating cell)
         if (not isinstance(self._keep_prob, float)) or self._keep_prob < 1:
-            g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
+            if self._recurrent_dropout:  # recurrent dropout
+                g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
+            else:  # variational dropout
+                i = nn_ops.dropout(i, self._keep_prob, seed=self._seed)
+                g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
+                f = nn_ops.dropout(f, self._keep_prob, seed=self._seed)
+                o = nn_ops.dropout(o, self._keep_prob, seed=self._seed)
 
         gated_in = math_ops.sigmoid(i) * g
         memory = c * math_ops.sigmoid(f + self._forget_bias)

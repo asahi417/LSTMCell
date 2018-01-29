@@ -33,7 +33,6 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
     - recurrent dropout
     - variational dropout (per-sample masking version)
 
-
     """
 
     def __init__(self, num_units, forget_bias=1.0, activation=None, reuse=None,
