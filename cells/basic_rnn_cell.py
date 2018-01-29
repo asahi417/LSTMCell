@@ -11,20 +11,10 @@ _EPSILON = 10**-4
 
 
 class CustomRNNCell(rnn_cell_impl.RNNCell):
-    """Customized LSTM with several additional regularization
-    Edit `BasicLSTMCell` of tensorflow.
-    The implementation is based on: http://arxiv.org/abs/1409.2329.
-    We add forget_bias (default: 1) to the biases of the forget gate in order to
-    reduce the scale of forgetting in the beginning of the training.
-    It does not allow cell clipping, a projection layer, and does not
-    use peep-hole connections: it is the basic baseline.
-    For advanced models, please use the full @{tf.nn.rnn_cell.LSTMCell}
-    that follows.
-
+    """Customized RNN with several additional regularization
     - variational dropout (inputs and state: currently same dropout prob,  per-sample masking)
     - recurrent highway network
     - layer normalization
-
     """
 
     def __init__(self, num_units, activation=None, reuse=None,
