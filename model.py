@@ -6,6 +6,7 @@ import numpy as np
 from cells import HyperLSTMCell
 from cells import CustomLSTMCell
 from cells import CustomRNNCell
+from cells import KVPAttentionWrapper
 
 
 def _batch_size(inputs):
@@ -82,18 +83,22 @@ class LSTMLanguageModel(object):
             self._params = dict(
                 num_units=self._config["n_hidden"], layer_norm=self._layer_norm,
                 recurrent_highway=True, recurrence_depth=self._config["recurrence_depth"])
-        else:
+        elif self._type_of_lstm == "attention" or self._type_of_lstm is None:
             self._LSTMCell = CustomLSTMCell
             self._params = dict(num_units=self._config["n_hidden"], layer_norm=self._layer_norm)
+        else:
+            raise ValueError("unknown lstm")
 
         # Create network
         initializer = tf.random_uniform_initializer(-ini_scale, ini_scale, seed=0)
-        # with tf.variable_scope("model", initializer=initializer, reuse=None):
-        self._build_model()
+        with tf.variable_scope("model", initializer=initializer, reuse=None):
+            self._build_model()
         # Launch the session
-        self.sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
+            self.sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
+
         # Load model
         if load_model:
+            self._build_model()
             tf.reset_default_graph()
             self.saver.restore(self.sess, load_model)
 
@@ -117,12 +122,7 @@ class LSTMLanguageModel(object):
         inputs = tf.nn.dropout(inputs, __keep_prob)
 
         with tf.variable_scope("RNNCell"):
-            if self._type_of_lstm == "rhn":
-                # build single RNN layer
-                self._params["dropout_keep_prob"] = __keep_prob_r
-                cells = self._LSTMCell(**self._params)
-
-            else:
+            if self._type_of_lstm == "attention":
                 # build stacked LSTM layer
                 cells = []
                 for i in range(1, 3):
@@ -131,25 +131,46 @@ class LSTMLanguageModel(object):
                     cells.append(cell)
                 cells = tf.nn.rnn_cell.MultiRNNCell(cells)
 
-            outputs = []
-            self._initial_state = cells.zero_state(batch_size=batch_size, dtype=tf.float32)
-            state = self._initial_state
-            for time_step in range(self._config["num_steps"]):
-                if time_step > 0:
-                    tf.get_variable_scope().reuse_variables()
-                (cell_output, state) = cells(inputs[:, time_step, :], state)
-                # print(cell_output.shape)
-                outputs.append(cell_output)
+                attention_layer = KVPAttentionWrapper(cells, self._config["attention_window"],
+                                                      self._config["num_steps"], mode=self._config["attention_mode"])
 
+                self._initial_state = cells.zero_state(batch_size=batch_size, dtype=tf.float32)
+                print("alignment size", attention_layer.alignment_history_size)
+                outputs, self._final_state = attention_layer(inputs, self._initial_state)
+                print("alignment size", attention_layer.alignment_history_size)
+
+            else:
+                if self._type_of_lstm == "rhn":
+                    # build single RNN layer
+                    self._params["dropout_keep_prob"] = __keep_prob_r
+                    cells = self._LSTMCell(**self._params)
+
+                else:
+                    # build stacked LSTM layer
+                    cells = []
+                    for i in range(1, 3):
+                        self._params["dropout_keep_prob"] = __keep_prob_r
+                        cell = self._LSTMCell(**self._params)
+                        cells.append(cell)
+                    cells = tf.nn.rnn_cell.MultiRNNCell(cells)
+
+                outputs = []
+                self._initial_state = cells.zero_state(batch_size=batch_size, dtype=tf.float32)
+                state = self._initial_state
+                for time_step in range(self._config["num_steps"]):
+                    if time_step > 0:
+                        tf.get_variable_scope().reuse_variables()
+                    (cell_output, state) = cells(inputs[:, time_step, :], state)
+                    # print(cell_output.shape)
+                    outputs.append(cell_output)
+                outputs = tf.stack(outputs, axis=1)
+                self._final_state = state
         # weight is shared sequence direction (in addition to batch direction),
         # so reshape to treat sequence direction as batch direction
         # output shape: (batch, num_steps, last hidden size) -> (batch x num_steps, last hidden size)
-        outputs = tf.stack(outputs, axis=1)
         outputs = tf.reshape(outputs, [-1, self._config["n_hidden"]])
 
         outputs = tf.nn.dropout(outputs, __keep_prob)
-
-        self._final_state = state
 
         # Prediction and Loss
         with tf.variable_scope("fully_connected", reuse=None):
@@ -240,6 +261,8 @@ if __name__ == '__main__':
         "embedding_size": 200,
         "n_hidden_hyper": 100, "n_embedding_hyper": 4,
         "n_hidden": 200,
-        "recurrence_depth": 4
+        "recurrence_depth": 4,
+        "attention_window": 5,
+        "attention_mode": None
     }
-    LSTMLanguageModel(net, keep_prob_r=0.75, type_of_lstm="rhn", layer_norm=False)  # gradient_clip=10, batch_norm=0.95, keep_prob=0.8, layer_norm=True)
+    LSTMLanguageModel(net, keep_prob_r=0.75, type_of_lstm="attention", layer_norm=False)

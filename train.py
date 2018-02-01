@@ -9,7 +9,6 @@ Following parameter is fixed:
     - keep prob: 0.75 for embedding and output, 0.5 for recurrent state and input
 """
 
-
 import os
 import logging
 import argparse
@@ -130,13 +129,7 @@ def train(model, max_max_epoch,
 def get_options(parser):
     share_param = {'nargs': '?', 'action': 'store', 'const': None, 'choices': None, 'metavar': None}
     parser.add_argument('lstm', help='LSTM type. (default: None)', default=None, type=str, **share_param)
-    # parser.add_argument('-e', '--epoch', help='Epoch (default: 100)', default=100, type=int, **share_param)
-    # parser.add_argument('-b', '--batch', help='Batch (default: 20)', default=20, type=int, **share_param)
-    # parser.add_argument('-s', '--step', help='Num steps (default: 35)', default=35, type=int, **share_param)
-    # parser.add_argument('-lr', '--lr', help='Learning rate (default: 0.5)', default=0.5, type=float, **share_param)
-    # parser.add_argument('-c', '--clip', help='Gradient clip. (default: 10)', default=10, type=float, **share_param)
-    # parser.add_argument('-k', '--keep', help='Keep rate. (default: 1.0)', default=1.0, type=float, **share_param)
-    # parser.add_argument('-d', '--lrd', help='LR decay (default: 0.8)', default=0.8, type=float, **share_param)
+    parser.add_argument('-lr', '--lr', help='learning rate. (default: 0.5)', default=0.5, type=float, **share_param)
     parser.add_argument('-wd', '--wd', help='Weight decay. (default: 0.0)', default=0.0, type=float, **share_param)
     parser.add_argument('-wt', '--wt', help='Weight tying. (default: False)', default=False, type=float, **share_param)
     parser.add_argument('-ln', '--ln', help='Layer norm. (default: False)', default=False, type=bool, **share_param)
@@ -161,12 +154,13 @@ if __name__ == '__main__':
 
     config = {
         "num_steps": 35, "vocab_size": vocab,
-        "n_hidden_hyper": 64, "n_embedding_hyper": 4,  # for hypernets
+        "n_hidden_hyper": 32, "n_embedding_hyper": 16,  # for Hypernets
         "recurrent_highway": True, "recurrence_depth": 4,  # for RHN
+        "attention_window": 5, "attention_mode": None,  # for Attention model
         "embedding_size": 650, "n_hidden": 650
         }
 
     _model = LSTMLanguageModel(config, learning_rate=0.5, gradient_clip=10, keep_prob_r=0.5, keep_prob=0.75,
                                type_of_lstm=args.lstm, weight_decay=args.wd, weight_tying=args.wt, layer_norm=args.ln)
 
-    train(_model, max_max_epoch=100, verbose=True, save_path=path, lr_decay=0.8, **iterators)
+    train(_model, max_max_epoch=50, verbose=True, save_path=path, lr_decay=0.8, **iterators)
