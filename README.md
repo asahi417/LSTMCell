@@ -9,9 +9,11 @@ Tested by language modeling task for
 Following cells are available:
 
 - [***Hyper Networks***](cells/hypernets_cell.py)
-[Ha, David, Andrew Dai, and Quoc V. Le. "Hypernetworks." arXiv preprint arXiv:1609.09106 (2016).](https://arxiv.org/abs/1609.09106)
+[Ha, David, Andrew Dai, and Quoc V. Le. "Hypernetworks." Proceedings of International Conference on Learning Representations (ICLR) 2017.](https://arxiv.org/abs/1609.09106)
 - [***Recurrent Highway Network***](cells/basic_rnn_cell.py)
-[Zilly, Julian Georg, et al. "Recurrent highway networks." arXiv preprint arXiv:1607.03474 (2016).](https://arxiv.org/abs/1607.03474)
+[Zilly, Julian Georg, et al. "Recurrent Highway Networks." International Conference on Machine Learning (ICML) 2017.](https://arxiv.org/abs/1607.03474)
+- [***Key-Value-Predict Attention***](cells/kvp_attention_cell.py)
+[Daniluk, Michał, et al. "Frustratingly short attention spans in neural language modeling." Proceedings of International Conference on Learning Representations (ICLR) 2017.](https://arxiv.org/abs/1702.04521)
 
 Each cell utilizes following regularization:
 
@@ -28,7 +30,7 @@ Data was downloaded via [PTB dataset from Tomas Mikolov's webpage](http://www.fi
 ## Model
 To compare the effect of each cell simply, following parameters are fixed:
 
-- epoch: 100
+- epoch: 50
 - batch: 20
 - sequence step number: 35
 - learning rate: 0.5
@@ -63,7 +65,6 @@ python train.py
 # Todo
 - Neural Architecture Searching
 - Layer normalization dosen't improve performance. It could have some bugs...
-- Attention cell
 
 # Other
 - This code is supported python 3 and tensorflow 1.3.0.
