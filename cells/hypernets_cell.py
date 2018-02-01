@@ -1,4 +1,3 @@
-
 """
 https://github.com/tensorflow/tensorflow/blob/r1.4/tensorflow/python/ops/rnn_cell_impl.py
 https://github.com/tensorflow/tensorflow/blob/r1.4/tensorflow/contrib/rnn/python/ops/rnn_cell.py
@@ -39,7 +38,7 @@ class HyperLSTMCell(rnn_cell_impl.RNNCell):
         :param activation: Activation function of the inner states.  Default: `tanh`.
         :param reuse: (optional) Python boolean describing whether to reuse variables
                 in an existing scope.  If not `True`, and the existing scope already has
-                the given variables, an error is raised.
+                the given variables, an error is raised.    q
                 When restoring from CudnnLSTM-trained checkpoints, must use
                 CudnnCompatibleLSTMCell instead.
         :param bool layer_norm: Layer normalization
