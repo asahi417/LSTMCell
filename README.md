@@ -49,6 +49,12 @@ The language model is
 - **vanilla LSTM** and **Hyper Networks**: 2 layer stacked cell
 - **Recurrent Highway**: 1 layer 
 
+Trainable parameter
+- LSTM: 19775200
+- RHN: 19355300
+- Hyper: 21537504
+- Attention: 21465850
+
 # How to use
 
 ```

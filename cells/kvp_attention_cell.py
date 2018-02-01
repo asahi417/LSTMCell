@@ -48,6 +48,9 @@ class KVPAttentionWrapper:
         :param mode: None for basic one, `kvp` for key-value-predict attention
         :return: new output, context vector derived by attention mechanism
         """
+
+        n_window, n_hidden = output_sequence.shape.as_list()[1:]
+
         if mode is None or mode == "k":  # basic attention
             os_k = os_v = os_p = output_sequence
             ot_k = ot_v = ot_p = output_target
@@ -55,13 +58,17 @@ class KVPAttentionWrapper:
             os_k, os_v = array_ops.split(value=output_sequence, num_or_size_splits=2, axis=2)
             ot_k, ot_v = array_ops.split(value=output_target, num_or_size_splits=2, axis=1)
             ot_p, os_p = ot_v, os_v
+            if n_hidden % 2 != 0:
+                raise ValueError("for `kv` mode, `n_hidden` should be even.")
+            n_hidden = int(n_hidden / 2)
         elif mode == "kvp":  # key-value-prediction attention
             os_k, os_v, os_p = array_ops.split(value=output_sequence, num_or_size_splits=3, axis=2)
             ot_k, ot_v, ot_p = array_ops.split(value=output_target, num_or_size_splits=3, axis=1)
+            if n_hidden % 3 != 0:
+                raise ValueError("for `kvp` mode, `n_hidden` should be availe to be divided by 3.")
+            n_hidden = int(n_hidden / 3)
         else:
             raise ValueError("unknown mode")
-
-        n_window, n_hidden = output_sequence.shape.as_list()[1:]
 
         with vs.variable_scope("context_vector"):
             a = []  # alpha of attention mechanism
@@ -85,7 +92,8 @@ class KVPAttentionWrapper:
             w_r = vs.get_variable("w_r", shape=[n_hidden, n_hidden])  # weight for context vector
 
         logit = math_ops.matmul(ot_p, w_h) + math_ops.matmul(r, w_r)
-        output = math_ops.tanh(logit)  # new output (batch, hidden)
+        output = math_ops.tanh(logit)
+        # new output (batch, hidden or hidden/2 (kv) or hidden/3 (kvp))
         return output, r
 
     def __call__(self, inputs, initial_state, scope=None):
