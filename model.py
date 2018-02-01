@@ -135,9 +135,9 @@ class LSTMLanguageModel(object):
                                                       self._config["num_steps"], mode=self._config["attention_mode"])
 
                 self._initial_state = cells.zero_state(batch_size=batch_size, dtype=tf.float32)
-                print("alignment size", attention_layer.alignment_history_size)
                 outputs, self._final_state = attention_layer(inputs, self._initial_state)
-                print("alignment size", attention_layer.alignment_history_size)
+                self._alignment_history_size = attention_layer.alignment_history_size
+                self._alignment_history = attention_layer.alignment_history
 
             else:
                 if self._type_of_lstm == "rhn":

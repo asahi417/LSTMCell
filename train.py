@@ -158,7 +158,7 @@ if __name__ == '__main__':
         "recurrent_highway": True, "recurrence_depth": 4,  # for RHN
         "attention_window": 5, "attention_mode": None,  # for Attention model
         "embedding_size": 650, "n_hidden": 650
-        }
+    }
 
     _model = LSTMLanguageModel(config, learning_rate=0.5, gradient_clip=10, keep_prob_r=0.5, keep_prob=0.75,
                                type_of_lstm=args.lstm, weight_decay=args.wd, weight_tying=args.wt, layer_norm=args.ln)
