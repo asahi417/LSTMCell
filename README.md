@@ -64,21 +64,21 @@ The result on PTB is summarized as below.
 
 Here, the data is split into *train*, *validation*, and *test* following [Mikolov](http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz).
 
-| Train Perplexity | Cell |   
-|:-----------|------------:|:------------:|
+|Train Perplexity|Cell|
+|---|---|
 | 26.50 |  vanilla LSTM | 
 | 45.80 |  RHN |
 | 37.78 |  Hypernets |
 
 
 | Validation Perplexity | Cell |
-|:-----------|------------:|:------------:|
+|---|---|
 | 149.39 | vanilla LSTM | 
 | 127.44 |  RHN | 
 | 129.94 |  Hypernets | 
 
 | Test Perplexity | Cell |
-|:-----------|------------:|:------------:|
+|---|---|
 | 143.31 |  vanilla LSTM | 
 | 121.23 |  RHN | 
 | 122.49 |  Hypernets | 
