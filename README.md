@@ -55,6 +55,35 @@ Trainable parameter
 - Hyper: 21537504
 - Attention: 21465850
 
+The result on PTB is summarized as below.
+
+<p align="center">
+  <img src="./img/perplexity.png" width="900">
+  <br><i> Perplexity for each cell. log</i>
+</p>
+
+Here, the data is split into *train*, *validation*, and *test* following [Mikolov](http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz).
+
+| Train Perplexity | Cell |   
+|:-----------|------------:|:------------:|
+| 26.50 |  vanilla LSTM | 
+| 45.80 |  RHN |
+| 37.78 |  Hypernets |
+
+
+| Validation Perplexity | Cell |
+|:-----------|------------:|:------------:|
+| 149.39 | vanilla LSTM | 
+| 127.44 |  RHN | 
+| 129.94 |  Hypernets | 
+
+| Test Perplexity | Cell |
+|:-----------|------------:|:------------:|
+| 143.31 |  vanilla LSTM | 
+| 121.23 |  RHN | 
+| 122.49 |  Hypernets | 
+
+
 # How to use
 
 ```
@@ -70,7 +99,8 @@ python train.py
 
 # Todo
 - Neural Architecture Searching
-- Layer normalization dosen't improve performance. It could have some bugs...
+- Layer normalization dose not improve performance. It could have some bugs...
+- Weight tying for language model
 
 # Other
 - This code is supported python 3 and tensorflow 1.3.0.
