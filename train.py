@@ -122,6 +122,8 @@ def train(model, max_max_epoch,
         length += iter_train_data.num_steps
     perplexity_test = np.exp(loss / length)
 
+    logger.info("test perplexity %0.3f" % perplexity_test)
+
     model.saver.save(model.sess, "%s/model.ckpt" % save_path)
     np.savez("%s/statistics.npz" % save_path, loss=np.array(result), perplexity_test=perplexity_test)
 
@@ -129,8 +131,10 @@ def train(model, max_max_epoch,
 def get_options(parser):
     share_param = {'nargs': '?', 'action': 'store', 'const': None, 'choices': None, 'metavar': None}
     parser.add_argument('lstm', help='LSTM type. (default: None)', default=None, type=str, **share_param)
-    parser.add_argument('-lr', '--lr', help='learning rate. (default: 0.5)', default=0.5, type=float, **share_param)
-    parser.add_argument('-wd', '--wd', help='Weight decay. (default: 0.0)', default=0.0, type=float, **share_param)
+    parser.add_argument('-e', '--epoch', help='Epoch. (default: 50)', default=50, type=int, **share_param)
+    parser.add_argument('-l', '--lr', help='Learning rate. (default: 0.5)', default=0.5, type=float, **share_param)
+    parser.add_argument('-c', '--clip', help='Gradient clip. (default: 10)', default=10, type=float, **share_param)
+    parser.add_argument('-wd', '--wd', help='Weight decay. (default: 1e-9)', default=1e-9, type=float, **share_param)
     parser.add_argument('-wt', '--wt', help='Weight tying. (default: False)', default=False, type=float, **share_param)
     parser.add_argument('-ln', '--ln', help='Layer norm. (default: False)', default=False, type=bool, **share_param)
     return parser.parse_args()
@@ -160,7 +164,7 @@ if __name__ == '__main__':
         "embedding_size": 650, "n_hidden": 650
     }
 
-    _model = LSTMLanguageModel(config, learning_rate=0.5, gradient_clip=10, keep_prob_r=0.5, keep_prob=0.75,
+    _model = LSTMLanguageModel(config, learning_rate=args.lr, gradient_clip=args.clip, keep_prob_r=0.8, keep_prob=0.75,
                                type_of_lstm=args.lstm, weight_decay=args.wd, weight_tying=args.wt, layer_norm=args.ln)
 
-    train(_model, max_max_epoch=50, verbose=True, save_path=path, lr_decay=0.8, **iterators)
+    train(_model, max_max_epoch=args.epoch, verbose=True, save_path=path, lr_decay=0.8, **iterators)
