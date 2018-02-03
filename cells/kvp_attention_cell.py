@@ -7,6 +7,10 @@ https://arxiv.org/abs/1702.04521
 - Basic attention: Key = Value = Predict = Output
 - Key-Value attention: [Key, Value=Predict] = Output
 - Key-Value-Predict attention: [Key, Value, Predict] = Output
+
+
+Need to do
+- bidirectional version (mainly for classification)
 """
 
 from tensorflow.python.ops import array_ops
