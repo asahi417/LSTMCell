@@ -59,7 +59,7 @@ The result on PTB is summarized as below.
 
 <p align="center">
   <img src="./img/perplexity.png" width="900">
-  <br><i> Perplexity for each cell. log</i>
+  <br><i> Perplexity for each cell. </i>
 </p>
 
 Here, the data is split into *train*, *validation*, and *test* following [Mikolov](http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz).
