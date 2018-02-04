@@ -160,8 +160,8 @@ if __name__ == '__main__':
         "num_steps": 35, "vocab_size": vocab,
         "n_hidden_hyper": 32, "n_embedding_hyper": 16,  # for Hypernets
         "recurrent_highway": True, "recurrence_depth": 4,  # for RHN
-        "attention_window": 5, "attention_mode": None,  # for Attention model
-        "embedding_size": 650, "n_hidden": 650
+        "attention_window": 5, "attention_mode": "kvp",  # for Attention model
+        "embedding_size": 642, "n_hidden": 642
     }
 
     _model = LSTMLanguageModel(config, learning_rate=args.lr, gradient_clip=args.clip, keep_prob_r=0.8, keep_prob=0.75,

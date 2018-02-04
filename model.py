@@ -138,6 +138,7 @@ class LSTMLanguageModel(object):
                 outputs, self._final_state = attention_layer(inputs, self._initial_state)
                 self._alignment_history_size = attention_layer.alignment_history_size
                 self._alignment_history = attention_layer.alignment_history
+                n_hidden = attention_layer.n_hidden
 
             else:
                 if self._type_of_lstm == "rhn":
@@ -165,16 +166,17 @@ class LSTMLanguageModel(object):
                     outputs.append(cell_output)
                 outputs = tf.stack(outputs, axis=1)
                 self._final_state = state
+                n_hidden = self._config["n_hidden"]
         # weight is shared sequence direction (in addition to batch direction),
         # so reshape to treat sequence direction as batch direction
         # output shape: (batch, num_steps, last hidden size) -> (batch x num_steps, last hidden size)
-        outputs = tf.reshape(outputs, [-1, self._config["n_hidden"]])
+        outputs = tf.reshape(outputs, [-1, n_hidden])
 
         outputs = tf.nn.dropout(outputs, __keep_prob)
 
         # Prediction and Loss
         with tf.variable_scope("fully_connected", reuse=None):
-            weight = [self._config["n_hidden"], self._config["vocab_size"]]
+            weight = [n_hidden, self._config["vocab_size"]]
             if self._batch_norm_decay is not None:
                 layer = _full_connected(outputs, weight, bias=False, scope="fc")
                 logit = tf.contrib.layers.batch_norm(layer, decay=self._batch_norm_decay, is_training=self.is_train,
