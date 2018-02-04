@@ -69,7 +69,7 @@ class KVPAttentionWrapper:
             os_k, os_v, os_p = array_ops.split(value=output_sequence, num_or_size_splits=3, axis=2)
             ot_k, ot_v, ot_p = array_ops.split(value=output_target, num_or_size_splits=3, axis=1)
             if n_hidden % 3 != 0:
-                raise ValueError("for `kvp` mode, `n_hidden` should be availe to be divided by 3.")
+                raise ValueError("for `kvp` mode, `n_hidden` should be able to be divided by 3.")
             n_hidden = int(n_hidden / 3)
         else:
             raise ValueError("unknown mode")
@@ -98,7 +98,24 @@ class KVPAttentionWrapper:
         logit = math_ops.matmul(ot_p, w_h) + math_ops.matmul(r, w_r)
         output = math_ops.tanh(logit)
         # new output (batch, hidden or hidden/2 (kv) or hidden/3 (kvp))
-        return output, r
+        return output, r, n_hidden
+
+    @staticmethod
+    def _split_output(mode, alignment):
+        n_hidden = alignment.shape.as_list()[1]
+        if mode is None or mode == "k":  # basic attention
+            outputs = alignment
+        elif mode == "kv":  # key-value attention
+            outputs, _ = array_ops.split(value=alignment, num_or_size_splits=2, axis=1)
+            if n_hidden % 2 != 0:
+                raise ValueError("for `kv` mode, `n_hidden` should be even.")
+        elif mode == "kvp":  # key-value-prediction attention
+            outputs, _, _ = array_ops.split(value=alignment, num_or_size_splits=3, axis=1)
+            if n_hidden % 3 != 0:
+                raise ValueError("for `kvp` mode, `n_hidden` should be able to be divided by 3.")
+        else:
+            raise ValueError("unknown mode")
+        return outputs
 
     def __call__(self, inputs, initial_state, scope=None):
         """
@@ -117,15 +134,15 @@ class KVPAttentionWrapper:
                 with vs.variable_scope("rnn_cell", reuse=None if time_step == 0 else True):
                     (cell_output, state) = self._cell(inputs[:, time_step, :], state)
                 alignments.append(cell_output)
-
                 if len(alignments) < self._attention_window:
-                    output = cell_output
+                    output = self._split_output(self._mode, cell_output)
                 else:
                     reuse = None if len(alignments) == self._attention_window else True
                     with vs.variable_scope("attention", reuse=reuse):
                         alignments = alignments[-self._attention_window:]
-                        output, context_vector = self._attention(output_sequence=array_ops.stack(alignments, axis=1),
-                                                                 output_target=cell_output, mode=self._mode)
+                        output, context_vector, self._n_hidden =\
+                            self._attention(output_sequence=array_ops.stack(alignments, axis=1),
+                                            output_target=cell_output, mode=self._mode)
                 outputs.append(output)
 
             outputs = array_ops.stack(outputs, axis=1)
@@ -134,6 +151,10 @@ class KVPAttentionWrapper:
             self._alignments = alignments
 
         return outputs, state
+
+    @property
+    def n_hidden(self):
+        return self._n_hidden
 
     @property
     def alignment_history_size(self):
