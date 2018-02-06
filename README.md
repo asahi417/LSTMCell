@@ -86,4 +86,4 @@ python train.py
 - Weight tying for language model
 
 # Other
-- This code is supported python 3 and tensorflow 1.3.0.
+- This code is supported by python 3 and tensorflow 1.3.0.
