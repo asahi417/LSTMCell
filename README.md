@@ -30,7 +30,7 @@ Data was downloaded via [PTB dataset from Tomas Mikolov's webpage](http://www.fi
 ## Model
 To compare the effect of each cell simply, following parameters are fixed:
 
-- epoch: 50
+- epoch: 30
 - batch: 20
 - sequence step number: 35
 - learning rate: 0.5
@@ -46,8 +46,8 @@ the purpose of this repository is checking the implementation works correctly ra
 so the parameters were roughly selected.
 
 The language model is
-- **vanilla LSTM** and **Hyper Networks**: 2 layer stacked cell
-- **Recurrent Highway**: 1 layer 
+- **Recurrent Highway**: 1 layer
+- **vanilla LSTM**, **Hyper Networks**, **KVP attention**: 2 layer stacked cell 
 
 The result on PTB is summarized as below.
 
