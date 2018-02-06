@@ -49,12 +49,6 @@ The language model is
 - **vanilla LSTM** and **Hyper Networks**: 2 layer stacked cell
 - **Recurrent Highway**: 1 layer 
 
-Trainable parameter
-- LSTM: 19775200
-- RHN: 19355300
-- Hyper: 21537504
-- Attention: 21465850
-
 The result on PTB is summarized as below.
 
 <p align="center">
@@ -64,24 +58,13 @@ The result on PTB is summarized as below.
 
 Here, the data is split into *train*, *validation*, and *test* following [Mikolov](http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz).
 
-|Train Perplexity|Cell|
-|---|---|
-| 26.50 |  vanilla LSTM | 
-| 45.80 |  RHN |
-| 37.78 |  Hypernets |
 
-
-| Validation Perplexity | Cell |
-|---|---|
-| 149.39 | vanilla LSTM | 
-| 127.44 |  RHN | 
-| 129.94 |  Hypernets | 
-
-| Test Perplexity | Cell |
-|---|---|
-| 143.31 |  vanilla LSTM | 
-| 121.23 |  RHN | 
-| 122.49 |  Hypernets | 
+| Cell | Train Perplexity | Validation Perplexity | Test Perplexity | Train Variables |
+| --- | --- | --- | --- | --- |
+| vanilla LSTM  | 26.50 | 149.39 | 143.31 | 19775200 | 
+| Hypernets     | 37.78 | 129.94 | 122.49 | 21537504 |
+| KVP attention | 64.56 | 144.65 | 141.11 | 21465850 |
+| RHN           | 45.80 | 127.44 | 121.23 | 19355300 |
 
 
 # How to use
