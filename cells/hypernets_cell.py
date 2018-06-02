@@ -174,7 +174,7 @@ class HyperLSTMCell(rnn_cell_impl.RNNCell):
         g = self._activation(j)  # gating
 
         # recurrent dropout (dropout gating cell)
-        if (not isinstance(self._keep_prob, float)) or self._keep_prob < 1:
+        if isinstance(self._keep_prob, float) and self._keep_prob < 1:
             if self._recurrent_dropout:  # recurrent dropout
                 g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
             else:  # variational dropout
