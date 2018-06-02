@@ -8,6 +8,8 @@ Tested by language modeling task for
 
 Following cells are available:
 
+- [***Highway State Gating***](cells/basic_rnn_cell.py)  
+[Ron Shoham and Haim Permuter. "Highway State Gating for Recurrent Highway Networks: improving information flow through time" arxiv 2018](https://arxiv.org/pdf/1805.09238.pdf)
 - [***Hyper Networks***](cells/hypernets_cell.py)
 [Ha, David, Andrew Dai, and Quoc V. Le. "Hypernetworks." Proceedings of International Conference on Learning Representations (ICLR) 2017.](https://arxiv.org/abs/1609.09106)
 - [***Recurrent Highway Network***](cells/basic_rnn_cell.py)
@@ -27,6 +29,10 @@ Each cell utilizes following regularization:
 
 Data was downloaded via [PTB dataset from Tomas Mikolov's webpage](http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz).  
 
+## TODO
+- [ ] add sentiment classification example
+- [ ] Layer normalization dose not improve performance. Fix it.
+
 ## Model
 To compare the effect of each cell simply, following parameters are fixed:
 
@@ -40,7 +46,7 @@ To compare the effect of each cell simply, following parameters are fixed:
 - keep probability of dropout for embedding, outputs: 0.75
 - hidden unit and embedding dim: 650
 
-These were selected based on the middle sized model of [Zaremba, Wojciech, Ilya Sutskever, and Oriol Vinyals. "Recurrent neural network regularization." arXiv preprint arXiv:1409.2329 (2014).](https://arxiv.org/abs/1409.2329).
+These were selected based on the middle sized model of [Zaremba, Wojciech, Ilya Sutskever, and Oriol Vinyals. "Recurrent neural network regularization." arXiv preprint arXiv:1409.2329 (2014)](https://arxiv.org/abs/1409.2329).
 To compare cells fairly, these parameters should be selected by grid searching but
 the purpose of this repository is checking the implementation works correctly rather than building wonderful language model,
 so the parameters were roughly selected.
@@ -68,22 +74,19 @@ Here, the data is split into *train*, *validation*, and *test* following [Mikolo
 
 
 # How to use
-
+## setup
 ```
 git clone https://github.com/asahi417/LSTMCell
 cd LSTMCell
+pip install -r requirements.txt
+wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
+tar xvzf simple-examples.tgz
+```
+## train model
+```
 python train.py [target]
 ```
 Setting *target* to *hypernets* or *rhn*, you can learn model based on Hyper Networks or Recurrent Highway Network.
-Also you can see the baseline (vanilla LSTM) by 
-```
-python train.py
-```
-
-# Todo
-- Neural Architecture Searching
-- Layer normalization dose not improve performance. It could have some bugs...
-- Weight tying for language model
 
 # Other
 - This code is supported by python 3 and tensorflow 1.3.0.

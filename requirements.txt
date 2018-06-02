@@ -1,2 +1,4 @@
 tensorflow
+toml
+pandas
 numpy

@@ -9,14 +9,14 @@ from cells import CustomRNNCell
 from cells import KVPAttentionWrapper
 
 
-def _batch_size(inputs):
+def dynamic_batch_size(inputs):
     """ Dynamic batch size. https://github.com/tensorflow/tensorflow/blob/r1.4/tensorflow/python/ops/rnn.py """
     while nest.is_sequence(inputs):
         inputs = inputs[0]
     return array_ops.shape(inputs)[0]
 
 
-def _full_connected(x, weight_shape, scope=None, bias=True):
+def full_connected(x, weight_shape, scope=None, bias=True):
     """ fully connected layer
     - weight_shape: input size, output size
     - priority: batch norm (remove bias) > dropout and bias term
@@ -117,7 +117,7 @@ class LSTMLanguageModel(object):
         with tf.device("/cpu:0"):  # with tf.variable_scope("embedding"):
             embedding = tf.get_variable("embedding", [self._config["vocab_size"], self._config["embedding_size"]])
             inputs = tf.nn.embedding_lookup(embedding, self.inputs)
-            batch_size = _batch_size(inputs)  # dynamic batch size
+            batch_size = dynamic_batch_size(inputs)  # dynamic batch size
 
         inputs = tf.nn.dropout(inputs, __keep_prob)
 
@@ -178,11 +178,11 @@ class LSTMLanguageModel(object):
         with tf.variable_scope("fully_connected", reuse=None):
             weight = [n_hidden, self._config["vocab_size"]]
             if self._batch_norm_decay is not None:
-                layer = _full_connected(outputs, weight, bias=False, scope="fc")
+                layer = full_connected(outputs, weight, bias=False, scope="fc")
                 logit = tf.contrib.layers.batch_norm(layer, decay=self._batch_norm_decay, is_training=self.is_train,
                                                      updates_collections=None)
             else:
-                logit = _full_connected(outputs, weight, bias=True, scope="fc")
+                logit = full_connected(outputs, weight, bias=True, scope="fc")
             # Reshape logit to be a 3-D tensor for sequence loss
             logit = tf.reshape(logit, [batch_size, self._config["num_steps"], self._config["vocab_size"]])
 

@@ -1,0 +1,20 @@
+
+learning_rate=0.5
+gradient_clip=10
+batch_size = 10
+layer_norm = false
+keep_prob = 0.75
+keep_prob_r = 0.8
+weight_decay = 0.0
+optimizer = 'sgd'
+type_of_lstm='rhn'
+
+[config]
+vocab_size=10000
+num_steps=35
+embedding_size=642
+
+[config_lstm]
+recurrent_highway=true
+recurrence_depth=4
+num_units=642
