@@ -153,6 +153,7 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
             if self._highway_state_gate:
                 args = array_ops.concat([state_hsg, inter_out], 1)
                 g = self._linear(args, [args.get_shape()[-1], self._num_units], scope="highway_state_gate")
+                g = math_ops.sigmoid(g)
                 output = g * state_hsg + (1 - g) * inter_out
                 state = rnn_cell_impl.LSTMStateTuple(output, inter_out)
             else:
