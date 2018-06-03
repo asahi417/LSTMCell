@@ -18,3 +18,4 @@ embedding_size=642
 recurrent_highway=true
 recurrence_depth=8
 num_units=642
+highway_state_gate=true
