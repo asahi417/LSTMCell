@@ -67,9 +67,10 @@ def train(model,
             val = model.sess.run([model.loss, model.final_state, model.train_op], feed_dict=feed_dict)
 
             loss += val[0]
+
             initial_state = val[1]
             length += iter_train_data.num_steps
-
+            # print(np.exp(loss / length), loss, length)
             if verbose and step % (iter_train_data.iteration_number // 10) == 10:
                 wps = length * iter_train_data.batch_size * max(1, num_gpu) / (time() - start_time)
                 logger.info("epoch %i-%i/%i perplexity: %.3f, speed: %.3f wps"

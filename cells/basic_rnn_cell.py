@@ -153,7 +153,8 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
                 output = g * state_hsg + (1 - g) * inter_out
                 state = rnn_cell_impl.LSTMStateTuple(output, inter_out)
             else:
-                state = output = inter_out
+                state = inter_out
+                output = inter_out
 
         else:
             # Most basic RNN: output = new_state = act(W * input + U * state + B).
@@ -163,8 +164,8 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
             # layer normalization
             if self._layer_norm:
                 linear = self._layer_normalization(linear, "layer_norm")
-
-            state = output = self._activation(linear)
+            state = self._activation(linear)
+            output = self._activation(linear)
         return output, state
 
 

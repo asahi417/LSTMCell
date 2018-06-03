@@ -209,9 +209,8 @@ class LSTMLanguageModel:
             else:
                 raise ValueError('unknown optimizer %s' % self._optimizer)
             if self._clip is not None:
-                _var = tf.trainable_variables()
-                grads, _ = tf.clip_by_global_norm(tf.gradients(self._loss, _var), self._clip)
-                self._train_op = optimizer.apply_gradients(zip(grads, _var))
+                grads, _ = tf.clip_by_global_norm(tf.gradients(self._loss, t_vars), self._clip)
+                self._train_op = optimizer.apply_gradients(zip(grads, t_vars))
             else:
                 self._train_op = optimizer.minimize(self._loss)
 

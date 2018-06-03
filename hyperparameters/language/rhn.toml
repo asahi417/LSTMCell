@@ -1,11 +1,11 @@
 
-learning_rate=0.5
+learning_rate=0.08
 gradient_clip=10
-batch_size = 10
+batch_size = 20
 layer_norm = false
 keep_prob = 0.75
-keep_prob_r = 0.8
-weight_decay = 0.0
+keep_prob_r = 0.75
+weight_decay = 1e-9
 optimizer = 'sgd'
 type_of_lstm='rhn'
 
@@ -16,5 +16,5 @@ embedding_size=642
 
 [config_lstm]
 recurrent_highway=true
-recurrence_depth=4
+recurrence_depth=8
 num_units=642
