@@ -131,8 +131,10 @@ class LSTMLanguageModel:
                     cells.append(cell)
                 cells = tf.nn.rnn_cell.MultiRNNCell(cells)
 
-                attention_layer = KVPAttentionWrapper(cells, self._config["attention_window"],
-                                                      self._config["num_steps"], mode=self._config["attention_mode"])
+                attention_layer = KVPAttentionWrapper(cells,
+                                                      self._config["attention_window"],
+                                                      self._config["num_steps"],
+                                                      mode=self._config["attention_mode"])
 
                 self._initial_state = cells.zero_state(batch_size=batch_size, dtype=tf.float32)
                 outputs, self._final_state = attention_layer(inputs, self._initial_state)
@@ -141,11 +143,10 @@ class LSTMLanguageModel:
                 n_hidden = attention_layer.n_hidden
 
             else:
-                if self._type_of_lstm == "rhn":
+                if self._type_of_lstm in ["rhn", "hsg"]:
                     # build single RNN layer
                     self._config["dropout_keep_prob"] = __keep_prob_r
                     cells = self._LSTMCell(**self._config_lstm)
-
                 else:
                     # build stacked LSTM layer
                     cells = []
