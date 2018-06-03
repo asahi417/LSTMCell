@@ -39,7 +39,7 @@ class LSTMLanguageModel:
                  config,
                  config_lstm,
                  logger,
-                 ini_scale=0.05,
+                 ini_scale=0.01,
                  type_of_lstm=None,
                  load_model=None,
                  learning_rate=0.0001,
@@ -82,6 +82,7 @@ class LSTMLanguageModel:
         self._logger = logger
         self._optimizer = optimizer
         self._batch_size = batch_size
+        self._ini_scale = ini_scale
 
         if type_of_lstm in ["hypernets", "kvp", "lstm"]:
             self._LSTMCell = HyperLSTMCell

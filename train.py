@@ -23,6 +23,7 @@ from util import checkpoint_version
 
 def train(model,
           max_max_epoch,
+          max_epoch,
           iter_train_data,
           iter_valid_data,
           iter_test_data,
@@ -44,7 +45,6 @@ def train(model,
     """
 
     num_gpu = 0  # number of gpu
-    max_epoch = int(np.ceil(max_max_epoch / 10))
     logger.info("epoch (%i), sequence length (%i), batch size(%i), total variables(%i)" %
                 (max_max_epoch, iter_train_data.data_size, iter_train_data.batch_size, model.total_variable_number))
 
@@ -67,10 +67,9 @@ def train(model,
             val = model.sess.run([model.loss, model.final_state, model.train_op], feed_dict=feed_dict)
 
             loss += val[0]
-
             initial_state = val[1]
             length += iter_train_data.num_steps
-            # print(np.exp(loss / length), loss, length)
+            # print(np.exp(loss / length), val[0], length)
             if verbose and step % (iter_train_data.iteration_number // 10) == 10:
                 wps = length * iter_train_data.batch_size * max(1, num_gpu) / (time() - start_time)
                 logger.info("epoch %i-%i/%i perplexity: %.3f, speed: %.3f wps"
@@ -136,8 +135,9 @@ if __name__ == '__main__':
     model_instance = LSTMLanguageModel(**config, logger=_logger)  # if args.t == 'language' else None
     train(model_instance,
           max_max_epoch=args.epoch,
+          max_epoch=10,  # int(np.ceil(max_max_epoch / 10))
           verbose=True,
           save_path=checkpoint,
-          lr_decay=0.8,
+          lr_decay=0.1,
           logger=_logger,
           **iterators)
