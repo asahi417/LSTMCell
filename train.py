@@ -135,9 +135,9 @@ if __name__ == '__main__':
     model_instance = LSTMLanguageModel(**config, logger=_logger)  # if args.t == 'language' else None
     train(model_instance,
           max_max_epoch=args.epoch,
-          max_epoch=10,  # int(np.ceil(max_max_epoch / 10))
+          max_epoch=10,
           verbose=True,
           save_path=checkpoint,
-          lr_decay=0.1,
+          lr_decay=0.8,
           logger=_logger,
           **iterators)

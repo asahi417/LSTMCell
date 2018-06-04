@@ -1,7 +1,7 @@
 
 type_of_lstm='hypernets'
 
-learning_rate=1.0
+learning_rate=0.5
 gradient_clip=10
 batch_size=20
 layer_norm=false
