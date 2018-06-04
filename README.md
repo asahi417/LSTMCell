@@ -4,9 +4,10 @@
 
 Recently proposed LSTM (RNN) cell implementation by tensorflow.
 Tested by language modeling task for 
-[Penn Tree Bank](https://catalog.ldc.upenn.edu/ldc99t42).
+[Penn Tree Bank](https://catalog.ldc.upenn.edu/ldc99t42),
+ which was downloaded via [PTB dataset from Tomas Mikolov's webpage](http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz).
 
-Following cells are available:
+Available property:
 
 - [***Highway State Gating***](cells/basic_rnn_cell.py)  
 [Ron Shoham and Haim Permuter. "Highway State Gating for Recurrent Highway Networks: improving information flow through time" arxiv 2018](https://arxiv.org/pdf/1805.09238.pdf)
@@ -26,52 +27,12 @@ Each cell utilizes following regularization:
 - Layer Normalization
 [Ba, Jimmy Lei, Jamie Ryan Kiros, and Geoffrey E. Hinton. "Layer normalization." arXiv preprint arXiv:1607.06450 (2016).](https://arxiv.org/abs/1607.06450)
 
-
-Data was downloaded via [PTB dataset from Tomas Mikolov's webpage](http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz).  
+The usage is the same as usual LSTM cell of tensorflow.
+  
 
 ## TODO
 - [ ] add sentiment classification example
 - [ ] Layer normalization dose not improve performance. Fix it.
-
-## Model
-To compare the effect of each cell simply, following parameters are fixed:
-
-- epoch: 30
-- batch: 20
-- sequence step number: 35
-- learning rate: 0.5
-- learning rate decay: 0.8 (max_epoch: 10)
-- gradient max norm: 10 
-- keep probability of dropout for state, input: 0.5
-- keep probability of dropout for embedding, outputs: 0.75
-- hidden unit and embedding dim: 650
-
-These were selected based on the middle sized model of [Zaremba, Wojciech, Ilya Sutskever, and Oriol Vinyals. "Recurrent neural network regularization." arXiv preprint arXiv:1409.2329 (2014)](https://arxiv.org/abs/1409.2329).
-To compare cells fairly, these parameters should be selected by grid searching but
-the purpose of this repository is checking the implementation works correctly rather than building wonderful language model,
-so the parameters were roughly selected.
-
-The language model is
-- **Recurrent Highway**: 1 layer
-- **vanilla LSTM**, **Hyper Networks**, **KVP attention**: 2 layer stacked cell 
-
-The result on PTB is summarized as below.
-
-<p align="center">
-  <img src="./img/perplexity.png" width="900">
-  <br><i> Perplexity for each cell. </i>
-</p>
-
-Here, the data is split into *train*, *validation*, and *test* following [Mikolov](http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz).
-
-
-| Cell | Train Perplexity | Validation Perplexity | Test Perplexity | Train Variables |
-| --- | --- | --- | --- | --- |
-| vanilla LSTM  | 26.50 | 149.39 | 143.31 | 19775200 | 
-| Hypernets     | 37.78 | 129.94 | 122.49 | 21537504 |
-| KVP attention | 64.56 | 144.65 | 141.11 | 21465850 |
-| RHN           | 45.80 | 127.44 | 121.23 | 19355300 |
-
 
 # How to use
 ## setup
@@ -82,11 +43,29 @@ pip install -r requirements.txt
 wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 tar xvzf simple-examples.tgz
 ```
-## train model
+
+# Train model language model
+See the effect of LSTM cells by language modeling:
 ```
-python train.py [target]
+python train.py -m [lstm type] -e [epoch] -t language
 ```
-Setting *target* to *hypernets* or *rhn*, you can learn model based on Hyper Networks or Recurrent Highway Network.
+- lstm type: lstm, rhn, hypernets, kvp, hsg
+
+The middle sized model of [Zaremba, Wojciech, Ilya Sutskever, and Oriol Vinyals. "Recurrent neural network regularization." arXiv preprint arXiv:1409.2329 (2014)](https://arxiv.org/abs/1409.2329)
+is employed as baseline model. 
+
+## Brief comparison 
+The results on brief experiment over PTB data set is shown by following table.
+See [here](hyperparameters) for hyperparameters.
+
+| Cell | Train perplexity | Validation perplexity | Epoch for the best validation perplexity | Trainable variables |
+| --- | --- | --- | --- | --- |
+| vanilla LSTM  | 26.50 | 149.39 | 143.31 | 19775200 | 
+| Hypernets     | 37.78 | 129.94 | 122.49 | 21537504 |
+| KVP attention | 64.56 | 144.65 | 141.11 | 21465850 |
+| Recurrent Highway | 45.80 | 127.44 | 121.23 | 19355300 |
+| Highway State Gating| 45.80 | 127.44 | 121.23 | 19355300 |
+
 
 # Other
 - This code is supported by python 3 and tensorflow 1.3.0.
