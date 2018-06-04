@@ -136,7 +136,7 @@ class LSTMLanguageModel:
                 attention_layer = KVPAttentionWrapper(cells,
                                                       self._config["attention_window"],
                                                       self._config["num_steps"],
-                                                      mode=self._config["attention_mode"])
+                                                      mode=self._config["mode"])
 
                 self._initial_state = cells.zero_state(batch_size=batch_size, dtype=tf.float32)
                 outputs, self._final_state = attention_layer(inputs, self._initial_state)

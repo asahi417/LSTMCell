@@ -14,8 +14,8 @@ optimizer='sgd'
 vocab_size=10000
 num_steps=35
 embedding_size=642
+attention_window=5
+mode='kvp'
 
 [config_lstm]
 num_units=642
-attention_window=5
-attention_mode='kvp'

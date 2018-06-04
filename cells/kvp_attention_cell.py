@@ -30,8 +30,13 @@ class KVPAttentionWrapper:
     Key-Value-Predict attention wrapper for (stacked) LSTM cell.
     """
 
-    def __init__(self, cell, attention_window, sequence_length, mode="kvp",
-                 bidirectional=False, alignment_history=True):
+    def __init__(self,
+                 cell,
+                 attention_window,
+                 sequence_length,
+                 mode="kvp",
+                 bidirectional=False,
+                 alignment_history=True):
 
         self._cell = cell
         self._attention_window = attention_window
