@@ -84,8 +84,10 @@ class LSTMLanguageModel:
         self._batch_size = batch_size
         self._ini_scale = ini_scale
 
-        if type_of_lstm in ["hypernets", "kvp", "lstm"]:
+        if type_of_lstm in ["hypernets"]:
             self._LSTMCell = HyperLSTMCell
+        elif type_of_lstm in ["lstm", "kvp"]:
+            self._LSTMCell = CustomLSTMCell
         elif type_of_lstm in ["rhn", "hsg"]:
             self._LSTMCell = CustomRNNCell
         else:
