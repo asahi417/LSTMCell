@@ -120,7 +120,7 @@ if __name__ == '__main__':
     _parser = argparse.ArgumentParser(description='This script is ...', formatter_class=argparse.RawTextHelpFormatter)
     args = get_options(_parser)
     config = toml.load(open('hyperparameters/%s/%s.toml' % (args.type, args.model)))
-    print(config)
+    # print(config)
     checkpoint, _logger = checkpoint_version(config, 'checkpoint/%s' % args.model)
 
     # data
