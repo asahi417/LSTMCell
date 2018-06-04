@@ -1,5 +1,5 @@
 
-learning_rate=0.08
+learning_rate=0.2
 gradient_clip=10
 batch_size=20
 layer_norm=false
