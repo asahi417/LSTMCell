@@ -93,7 +93,7 @@ class KVPAttentionWrapper:
             m = math_ops.tanh(logit)  # M of attention mechanism
             a.append(math_ops.matmul(m, w))  # (batch, 1)
 
-        a = nn_ops.softmax(array_ops.stack(a, axis=1), axis=1)  # (batch, window, 1)
+        a = nn_ops.softmax(array_ops.stack(a, axis=1))  # (batch, window, 1)
         r = math_ops.reduce_sum(os_v * a, axis=1)  # context vector (batch, hidden)
 
         with vs.variable_scope("weighted_output"):  # derive attention weighted output

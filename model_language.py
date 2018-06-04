@@ -124,7 +124,7 @@ class LSTMLanguageModel:
         inputs = tf.nn.dropout(inputs, __keep_prob)
 
         with tf.variable_scope("RNNCell"):
-            if self._type_of_lstm == "attention":
+            if self._type_of_lstm == "kvp":
                 # build stacked LSTM layer
                 cells = []
                 for i in range(1, 3):
