@@ -18,4 +18,4 @@ embedding_size=642
 [config_lstm]
 num_units=642
 num_units_hyper=32
-#n_embedding_hyper=16
+embedding_dim=16
