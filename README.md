@@ -58,14 +58,15 @@ is employed as baseline model.
 The results on brief experiment over PTB data set is shown by following table.
 See [here](hyperparameters) for hyperparameters.
 
-| Cell | Train perplexity | Validation perplexity | Epoch for the best validation perplexity | Trainable variables |
-| --- | --- | --- | --- | --- |
-| vanilla LSTM  | 26.50 | 149.39 | 143.31 | 19775200 | 
-| Hypernets     | 37.78 | 129.94 | 122.49 | 21537504 |
-| KVP attention | 64.56 | 144.65 | 141.11 | 21465850 |
-| Recurrent Highway | 45.80 | 127.44 | 121.23 | 19355300 |
-| Highway State Gating| 45.80 | 127.44 | 121.23 | 19355300 |
+| Cell | Validation perplexity | Epoch for the best validation perplexity | Trainable variables |
+| --- | --- | --- | --- |
+| vanilla LSTM        | 152.10 | 8  | 19775200 | 
+| Hypernets           | 183.95 | 51 | 21537504 |
+| KVP attention       | 155.87 | 10 | 21465850 |
+| Recurrent Highway   | 146.05 | 15 | 19355300 |
+| Highway State Gating| 137.49 | 14 | 19355300 |
 
+Note that this result is by really rough tuning on hyperparameters.
 
 # Other
 - This code is supported by python 3 and tensorflow 1.3.0.
