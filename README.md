@@ -58,7 +58,7 @@ is employed as baseline model.
 The results on brief experiment over PTB data set is shown by following table.
 See [here](hyperparameters) for hyperparameters.
 
-| Cell | Validation perplexity | Epoch for the best validation perplexity | Trainable variables |
+| Cell | Validation perplexity | Epoch | Trainable variables |
 | --- | --- | --- | --- |
 | vanilla LSTM        | 152.10 | 8  | 19775200 | 
 | Hypernets           | 183.95 | 51 | 21537504 |
