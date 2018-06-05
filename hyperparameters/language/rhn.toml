@@ -17,5 +17,5 @@ embedding_size=642
 
 [config_lstm]
 recurrent_highway=true
-recurrence_depth=16
+recurrence_depth=8
 num_units=642
