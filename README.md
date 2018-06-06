@@ -44,7 +44,7 @@ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 tar xvzf simple-examples.tgz
 ```
 
-# Train model language model
+# Train language model
 See the effect of LSTM cells by language modeling:
 ```
 python train.py -m [lstm type] -e [epoch] -t language
@@ -63,7 +63,7 @@ See [here](hyperparameters) for hyperparameters.
 | vanilla LSTM        | 152.10 | 8  | 19775200 | 
 | Hypernets           | 183.95 | 51 | 21537504 |
 | KVP attention       | 155.87 | 10 | 21465850 |
-| Recurrent Highway   | 146.05 | 15 | 19355300 |
+| Recurrent Highway   | 137.45 | 15 | 19355300 |
 | Highway State Gating| 137.39 | 14 | 19355300 |
 
 Note that this result is by really rough tuning on hyperparameters.
