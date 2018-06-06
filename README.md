@@ -64,7 +64,7 @@ See [here](hyperparameters) for hyperparameters.
 | Hypernets           | 183.95 | 51 | 21537504 |
 | KVP attention       | 155.87 | 10 | 21465850 |
 | Recurrent Highway   | 146.05 | 15 | 19355300 |
-| Highway State Gating| 137.49 | 14 | 19355300 |
+| Highway State Gating| 137.39 | 14 | 19355300 |
 
 Note that this result is by really rough tuning on hyperparameters.
 
