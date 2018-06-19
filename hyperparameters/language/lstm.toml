@@ -1,7 +1,7 @@
 
 type_of_lstm='lstm'
 
-learning_rate=0.2
+learning_rate=0.5
 gradient_clip=10
 batch_size=20
 layer_norm=false
@@ -11,6 +11,7 @@ weight_decay=1e-9
 optimizer='sgd'
 
 [config]
+n_lstm_layer=1
 vocab_size=10000
 num_steps=35
 embedding_size=642

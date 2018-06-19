@@ -35,9 +35,17 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
 
     """
 
-    def __init__(self, num_units, forget_bias=1.0, activation=None, reuse=None,
-                 layer_norm=False, norm_shift=0.0, norm_gain=1.0,  # layer normalization
-                 dropout_keep_prob=1.0, dropout_prob_seed=None, recurrent_dropout=True  # dropout
+    def __init__(self,
+                 num_units,
+                 forget_bias=1.0,
+                 activation=None,
+                 reuse=None,
+                 layer_norm=False,
+                 norm_shift=0.0,
+                 norm_gain=1.0,  # layer normalization
+                 dropout_keep_prob=1.0,
+                 dropout_prob_seed=None,
+                 recurrent_dropout=True  # dropout
                  ):
         """Initialize the basic LSTM cell.
         Args:
@@ -133,14 +141,13 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
         g = self._activation(j)  # gating
 
         # dropout (recurrent or variational)
-        if isinstance(self._keep_prob, float) and self._keep_prob < 1:
-            if self._recurrent_dropout:  # recurrent dropout
-                g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
-            else:  # variational dropout
-                i = nn_ops.dropout(i, self._keep_prob, seed=self._seed)
-                g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
-                f = nn_ops.dropout(f, self._keep_prob, seed=self._seed)
-                o = nn_ops.dropout(o, self._keep_prob, seed=self._seed)
+        if self._recurrent_dropout:  # recurrent dropout
+            g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
+        else:  # variational dropout
+            i = nn_ops.dropout(i, self._keep_prob, seed=self._seed)
+            g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
+            f = nn_ops.dropout(f, self._keep_prob, seed=self._seed)
+            o = nn_ops.dropout(o, self._keep_prob, seed=self._seed)
 
         gated_in = math_ops.sigmoid(i) * g
         memory = c * math_ops.sigmoid(f + self._forget_bias)

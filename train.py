@@ -65,7 +65,8 @@ def train(model,
             if _e >= max_epoch:
                 feed_dict[model.lr_decay] = lr_decay
 
-            val = model.sess.run([model.loss, model.final_state, model.train_op], feed_dict=feed_dict)
+            val = model.sess.run([model.loss, model.final_state,
+                                  model.train_op], feed_dict=feed_dict)
 
             loss += val[0]
             initial_state = val[1]

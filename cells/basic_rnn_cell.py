@@ -114,14 +114,11 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
             state_hsg, state = state
         else:
             state_hsg = None
-
         # variational dropout for hidden unit (recurrent unit)
-        if isinstance(self._keep_prob_h, float) and self._keep_prob_h < 1:
-            state = nn_ops.dropout(state, self._keep_prob_h, seed=self._seed)
+        state = nn_ops.dropout(state, self._keep_prob_h, seed=self._seed)
 
         # variational dropout for input
-        if isinstance(self._keep_prob_in, float) and self._keep_prob_in < 1:
-            inputs = nn_ops.dropout(inputs, self._keep_prob_in, seed=self._seed)
+        inputs = nn_ops.dropout(inputs, self._keep_prob_in, seed=self._seed)
 
         if self._highway or self._recurrence_depth > 1:
             # Recurrent Highway Cell (state is last intermediate output of previous time step)

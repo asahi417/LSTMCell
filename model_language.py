@@ -127,8 +127,8 @@ class LSTMLanguageModel:
             if self._type_of_lstm == "kvp":
                 # build stacked LSTM layer
                 cells = []
-                for i in range(1, 3):
-                    self._config["dropout_keep_prob"] = __keep_prob_r
+                for i in range(self._config['n_lstm_layer']):
+                    self._config_lstm["dropout_keep_prob"] = __keep_prob_r
                     cell = self._LSTMCell(**self._config_lstm)
                     cells.append(cell)
                 cells = tf.nn.rnn_cell.MultiRNNCell(cells)
@@ -147,13 +147,13 @@ class LSTMLanguageModel:
             else:
                 if self._type_of_lstm in ["rhn", "hsg"]:
                     # build single RNN layer
-                    self._config["dropout_keep_prob"] = __keep_prob_r
+                    self._config_lstm["dropout_keep_prob"] = __keep_prob_r
                     cells = self._LSTMCell(**self._config_lstm)
                 else:
                     # build stacked LSTM layer
                     cells = []
-                    for i in range(1, 3):
-                        self._config["dropout_keep_prob"] = __keep_prob_r
+                    for i in range(self._config["n_lstm_layer"]):
+                        self._config_lstm["dropout_keep_prob"] = __keep_prob_r
                         cell = self._LSTMCell(**self._config_lstm)
                         cells.append(cell)
                     cells = tf.nn.rnn_cell.MultiRNNCell(cells)
