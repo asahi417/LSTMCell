@@ -10,28 +10,28 @@ is conducted.
 
 Available cells:
 
-- [***Highway State Gating***](cells/basic_rnn_cell.py)  
+- [***Highway State Gating***](lstm_cell/basic_rnn_cell.py)  
 [Ron Shoham and Haim Permuter. "Highway State Gating for Recurrent Highway Networks: improving information flow through time" arxiv 2018](https://arxiv.org/pdf/1805.09238.pdf)
     - Usage  
     ```
     from cells import CustomRNNCell
     cell = CustomRNNCell(highway_state_gate=True, recurrent_highway=True)
     ```
-- [***Hyper Networks***](cells/hypernets_cell.py)
+- [***Hyper Networks***](lstm_cell/hypernets_cell.py)
 [Ha, David, Andrew Dai, and Quoc V. Le. "Hypernetworks." Proceedings of International Conference on Learning Representations (ICLR) 2017.](https://arxiv.org/abs/1609.09106)
     - Usage  
     ```
     from cells import HyperLSTMCell
     cell = HyperLSTMCell()
     ```
-- [***Recurrent Highway Network***](cells/basic_rnn_cell.py)
+- [***Recurrent Highway Network***](lstm_cell/basic_rnn_cell.py)
 [Zilly, Julian Georg, et al. "Recurrent Highway Networks." International Conference on Machine Learning (ICML) 2017.](https://arxiv.org/abs/1607.03474)
     - Usage  
     ```
     from cells import CustomRNNCell 
     cell = CustomRNNCell(recurrent_highway=True, recurrent_depth=4)
     ```
-- [***Key-Value-Predict Attention***](cells/kvp_attention_cell.py)
+- [***Key-Value-Predict Attention***](lstm_cell/kvp_attention_cell.py)
 [Daniluk, Michał, et al. "Frustratingly short attention spans in neural language modeling." Proceedings of International Conference on Learning Representations (ICLR) 2017.](https://arxiv.org/abs/1702.04521)
     - Usage  
     ```
@@ -39,7 +39,7 @@ Available cells:
     cell = LSTMCell.CustomLSTMCell()
     attention_layer = KVPAttentionWrapper(cells)
     ```
-- [***Vanilla LSTM***](cells/basic_lstm_cell.py)
+- [***Vanilla LSTM***](lstm_cell/basic_lstm_cell.py)
     - Usage  
     ```
     from cells import LSTMCell

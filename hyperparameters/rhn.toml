@@ -15,7 +15,7 @@ vocab_size=10000
 num_steps=35
 embedding_size=642
 
-[config_lstm]
+highway_state_gate=false
 recurrent_highway=true
 recurrence_depth=4
 num_units=642
