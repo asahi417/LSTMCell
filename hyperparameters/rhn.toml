@@ -1,5 +1,5 @@
 
-type_of_lstm='rhn'
+model='rhn'
 
 learning_rate=0.25
 gradient_clip=10

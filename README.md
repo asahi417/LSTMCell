@@ -1,9 +1,9 @@
-# LSTM (RNN) Cell 
+# Modern LSTM (RNN) Cell 
 [![dep1](https://img.shields.io/badge/Tensorflow-1.3+-blue.svg)](https://www.tensorflow.org/)
 [![license](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://github.com/asahi417/SequenceModeling/blob/master/LICENSE)
 
-Recently proposed LSTM (RNN) cells' implementations by tensorflow.
-To compare efficacy, language modeling over 
+Tensorflow implementations of recently proposed LSTM (RNN) cells.
+As testing cells, language modeling over 
 [Penn Tree Bank](https://catalog.ldc.upenn.edu/ldc99t42),
  which was downloaded via [PTB dataset from Tomas Mikolov's webpage](http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz),
 is conducted.
@@ -14,35 +14,35 @@ Available cells:
 [Ron Shoham and Haim Permuter. "Highway State Gating for Recurrent Highway Networks: improving information flow through time" arxiv 2018](https://arxiv.org/pdf/1805.09238.pdf)
     - Usage  
     ```
-    from cells import CustomRNNCell
+    from lstm_cell import CustomRNNCell
     cell = CustomRNNCell(highway_state_gate=True, recurrent_highway=True)
     ```
 - [***Hyper Networks***](lstm_cell/hypernets_cell.py)
 [Ha, David, Andrew Dai, and Quoc V. Le. "Hypernetworks." Proceedings of International Conference on Learning Representations (ICLR) 2017.](https://arxiv.org/abs/1609.09106)
     - Usage  
     ```
-    from cells import HyperLSTMCell
+    from lstm_cell import HyperLSTMCell
     cell = HyperLSTMCell()
     ```
 - [***Recurrent Highway Network***](lstm_cell/basic_rnn_cell.py)
 [Zilly, Julian Georg, et al. "Recurrent Highway Networks." International Conference on Machine Learning (ICML) 2017.](https://arxiv.org/abs/1607.03474)
     - Usage  
     ```
-    from cells import CustomRNNCell 
+    from lstm_cell import CustomRNNCell 
     cell = CustomRNNCell(recurrent_highway=True, recurrent_depth=4)
     ```
 - [***Key-Value-Predict Attention***](lstm_cell/kvp_attention_cell.py)
 [Daniluk, Michał, et al. "Frustratingly short attention spans in neural language modeling." Proceedings of International Conference on Learning Representations (ICLR) 2017.](https://arxiv.org/abs/1702.04521)
     - Usage  
     ```
-    from cells import KVPAttentionWrapper, CustomLSTMCell
+    from lstm_cell import KVPAttentionWrapper, CustomLSTMCell
     cell = LSTMCell.CustomLSTMCell()
     attention_layer = KVPAttentionWrapper(cells)
     ```
 - [***Vanilla LSTM***](lstm_cell/basic_lstm_cell.py)
     - Usage  
     ```
-    from cells import LSTMCell
+    from lstm_cell import LSTMCell
     cell = LSTMCell.CustomLSTMCell()
     ```
 
@@ -59,11 +59,11 @@ The usage is the same as usual LSTM cell of tensorflow.
   
 
 ## TODO
-- [ ] add sentiment classification example
+- [ ] Neural architecture search
+- [ ] minimal RNN
 - [ ] Layer normalization dose not improve performance. Fix it.
 
-# How to use
-## setup
+## How to use
 ```
 git clone https://github.com/asahi417/LSTMCell
 cd LSTMCell
@@ -72,12 +72,13 @@ wget http://www.fit.vutbr.cz/~imikolov/rnnlm/simple-examples.tgz
 tar xvzf simple-examples.tgz
 ```
 
-# Train language model
-See the effect of LSTM cells by language modeling:
+### train language model
+One can train language model by an arbitrary cell:
 ```
-python train.py -m [lstm type] -e [epoch] -t language
+python train.py -m [lstm type] --max_max_epoch [epoch]
+
+    [lstm type]: lstm, rhn, hypernets, kvp, hsg
 ```
-- lstm type: lstm, rhn, hypernets, kvp, hsg
 
 The middle sized model of [Zaremba, Wojciech, Ilya Sutskever, and Oriol Vinyals. "Recurrent neural network regularization." arXiv preprint arXiv:1409.2329 (2014)](https://arxiv.org/abs/1409.2329)
 is employed as baseline model. Vanilla LSTM achieves better result with two stacked LSTM layers and other LSTM cells 

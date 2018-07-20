@@ -1,5 +1,5 @@
 
-type_of_lstm='hypernets'
+model='hypernets'
 
 learning_rate=0.5
 gradient_clip=10
