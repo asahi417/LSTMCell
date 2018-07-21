@@ -24,7 +24,8 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
                  layer_norm: bool=False,
                  norm_shift: float=0.0,
                  norm_gain: float=1.0,  # layer normalization
-                 dropout_keep_prob: float=1.0,
+                 dropout_keep_prob_in=1.0,
+                 dropout_keep_prob_h=1.0,
                  dropout_prob_seed: int=None,  # dropout
                  recurrent_highway: bool=False,
                  highway_state_gate: bool=False,  # if true use
@@ -55,8 +56,8 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
         self._g = norm_gain
         self._b = norm_shift
 
-        self._keep_prob_in = dropout_keep_prob
-        self._keep_prob_h = dropout_keep_prob
+        self._keep_prob_in = dropout_keep_prob_in
+        self._keep_prob_h = dropout_keep_prob_h
         self._seed = dropout_prob_seed
 
         if not isinstance(recurrent_highway, bool):

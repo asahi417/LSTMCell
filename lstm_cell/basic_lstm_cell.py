@@ -73,9 +73,14 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
         self._g = norm_gain
         self._b = norm_shift
 
-        self._keep_prob = dropout_keep_prob
-        self._seed = dropout_prob_seed
         self._recurrent_dropout = recurrent_dropout  # if False -> Variational Dropput
+        self._seed = dropout_prob_seed
+        if self._recurrent_dropout:
+            if not isinstance(dropout_keep_prob, float):
+                raise ValueError('keep prob have to be float value')
+            self._keep_prob = dropout_keep_prob
+        else:
+            self._keep_prob_i = self._keep_prob_g = self._keep_prob_f = self._keep_prob_o = dropout_keep_prob
 
     @property
     def state_size(self):
@@ -142,12 +147,14 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
 
         # dropout (recurrent or variational)
         if self._recurrent_dropout:  # recurrent dropout
+            if not isinstance(self._keep_prob, float):
+                raise ValueError('keep prob have to be float')
             g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
         else:  # variational dropout
-            i = nn_ops.dropout(i, self._keep_prob, seed=self._seed)
-            g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
-            f = nn_ops.dropout(f, self._keep_prob, seed=self._seed)
-            o = nn_ops.dropout(o, self._keep_prob, seed=self._seed)
+            i = nn_ops.dropout(i, self._keep_prob_i, seed=self._seed)
+            g = nn_ops.dropout(g, self._keep_prob_g, seed=self._seed)
+            f = nn_ops.dropout(f, self._keep_prob_f, seed=self._seed)
+            o = nn_ops.dropout(o, self._keep_prob_o, seed=self._seed)
 
         gated_in = math_ops.sigmoid(i) * g
         memory = c * math_ops.sigmoid(f + self._forget_bias)
