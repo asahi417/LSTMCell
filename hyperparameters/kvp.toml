@@ -1,21 +1,26 @@
-
 model='kvp'
 
-learning_rate=0.2
+# KVP
+# same hyperparameter of LSTM
+# change number of layer to 1
+# leaning rate: 1
+# decay after 14 eoich: divide by 1.15
+# epoch 55
+
 gradient_clip=10
 batch_size=20
 layer_norm=false
-keep_prob=0.75
-keep_prob_r=0.75
+keep_prob=[0.5, 0.5]
+keep_prob_r=[0.5]
 weight_decay=1e-9
 optimizer='sgd'
+ini_scale=0.04
 
 [config]
 n_lstm_layer=1
 vocab_size=10000
 num_steps=35
-embedding_size=642
+embedding_size=1500
+num_units=1500
 attention_window=5
 mode='kvp'
-
-num_units=642

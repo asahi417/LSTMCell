@@ -1,21 +1,25 @@
-
 model='rhn'
 
-learning_rate=0.25
+# RHN
+# learning rate: 0.2
+# decay after 20 eoich: divide by 1.02
+# epoch 55
+
 gradient_clip=10
 batch_size=20
 layer_norm=false
-keep_prob=0.75
-keep_prob_r=0.75
+keep_prob=[0.75, 0.25]  # embedding, output
+keep_prob_r=[0.25, 0.75]  # input, state
 weight_decay=1e-9
 optimizer='sgd'
+ini_scale=0.04
 
 [config]
 vocab_size=10000
 num_steps=35
-embedding_size=642
+embedding_size=830
 
 highway_state_gate=false
 recurrent_highway=true
-recurrence_depth=4
-num_units=642
+recurrence_depth=10
+num_units=830
