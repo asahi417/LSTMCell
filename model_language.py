@@ -52,10 +52,9 @@ class LanguageModel:
                  checkpoint_dir: str,
                  model: str,
                  config: dict,
-                 learning_rate: float,
+                 keep_prob: list,
+                 keep_prob_r: list,
                  gradient_clip=None,
-                 keep_prob=1.0,
-                 keep_prob_r=1.0,
                  weight_decay=0.0,
                  weight_tying=False,
                  layer_norm=False,
@@ -71,7 +70,6 @@ class LanguageModel:
             os.makedirs(self.__checkpoint_dir, exist_ok=True)
         self.__checkpoint = '%s/model.ckpt' % self.__checkpoint_dir
         self.__config = config
-        self.__lr = learning_rate
         self.__clip = gradient_clip
         self.__layer_norm = layer_norm
         self.__keep_prob = keep_prob
@@ -84,15 +82,13 @@ class LanguageModel:
         self.__log = create_log('%s/log' % self.__checkpoint_dir)
         self.__log.info('BUILD GRAPH: %s' % self.__model)
         initializer = tf.random_uniform_initializer(-ini_scale, ini_scale, seed=0)
-        with tf.variable_scope("language_model_%s" % self.__model, initializer=initializer, reuse=None):
+        with tf.variable_scope("language_model", initializer=initializer, reuse=None):
             self.__build_graph()
 
         self.__session = tf.Session(config=tf.ConfigProto(log_device_placement=False))
         self.__summary = tf.summary.merge_all()
-        self.__writer_train = tf.summary.FileWriter('%s/summary_train' % self.__checkpoint_dir,
-                                                    self.__session.graph)
-        self.__writer_test = tf.summary.FileWriter('%s/summary_valid' % self.__checkpoint_dir)
-        self.__writer_test = tf.summary.FileWriter('%s/summary_test' % self.__checkpoint_dir)
+        self.__writer_train = tf.summary.FileWriter('%s/summary_train' % self.__checkpoint_dir, self.__session.graph)
+        self.__writer_valid = tf.summary.FileWriter('%s/summary_valid' % self.__checkpoint_dir)
         self.__session.run(tf.global_variables_initializer())
 
     def __build_graph(self):
@@ -103,23 +99,32 @@ class LanguageModel:
         self.__targets = tf.placeholder(tf.int32, [None, self.__config["num_steps"]], name="output")
         self.__is_training = tf.placeholder_with_default(False, [])
 
-        __keep_prob = tf.where(self.__is_training, self.__keep_prob, 1.0)
-        tf.summary.scalar('meta_keep_prob', __keep_prob)
+        # dropout for embedding and output layer
+        print(self.__keep_prob[0])
+        __keep_prob_emb = tf.where(self.__is_training, self.__keep_prob[0], 1.0)
+        __keep_prob_out = tf.where(self.__is_training, self.__keep_prob[1], 1.0)
+        tf.summary.scalar('meta_keep_prob_emb', __keep_prob_emb)
+        tf.summary.scalar('meta_keep_prob_out', __keep_prob_out)
 
-        __keep_prob_r = tf.where(self.__is_training, self.__keep_prob_r, 1.0)
-        tf.summary.scalar('meta_keep_prob_r', __keep_prob_r)
+        # dropout for lstm layer
+        __keep_prob_r = tf.where(self.__is_training, self.__keep_prob_r, [1.0] * len(self.__keep_prob_r))
+        variable_summaries(__keep_prob_r, 'meta_keep_prob_r')
 
+        # weight decay
         __weight_decay = tf.where(self.__is_training, self.__weight_decay, 0)
         tf.summary.scalar('meta_weight_decay', __weight_decay)
-
-        with tf.device("/cpu:0"):
-            embedding = tf.get_variable("embedding", [self.__config["vocab_size"], self.__config["embedding_size"]])
-            inputs = tf.nn.embedding_lookup(embedding, self.__inputs)
 
         ################################
         # main lstm-based architecture #
         ################################
-        inputs = tf.nn.dropout(inputs, __keep_prob)
+
+        # embedding
+        with tf.device("/cpu:0"):
+            embedding = tf.get_variable("embedding", [self.__config["vocab_size"], self.__config["embedding_size"]])
+            inputs = tf.nn.embedding_lookup(embedding, self.__inputs)
+
+        # lstm
+        inputs = tf.nn.dropout(inputs, __keep_prob_emb)
         with tf.variable_scope("RNNCell"):
             if self.__model == 'hypernets':
                 outputs, n_hidden = self.__hypernets(inputs, __keep_prob_r)
@@ -132,7 +137,7 @@ class LanguageModel:
 
         # weight is shared sequence direction (in addition to batch direction), so reshape to treat sequence direction
         # as batch direction. output: (batch, num_steps, last hidden size) -> (batch x num_steps, last hidden size)
-        outputs = tf.nn.dropout(tf.reshape(outputs, [-1, n_hidden]), __keep_prob)
+        outputs = tf.nn.dropout(tf.reshape(outputs, [-1, n_hidden]), __keep_prob_out)
         # prediction
         with tf.variable_scope("fully_connected", reuse=None):
             weight = [n_hidden, self.__config["vocab_size"]]
@@ -157,12 +162,12 @@ class LanguageModel:
             if self.__weight_decay != 0.0:  # L2 (weight decay)
                 self.__loss += tf.add_n([tf.nn.l2_loss(v) for v in tf.trainable_variables()]) * __weight_decay
 
-            self.__lr_decay = tf.placeholder_with_default(1.0, [])  # decay learning rate
-            tf.summary.scalar('meta_learning_rate', self.__lr * self.__lr_decay)
+            self.__learning_rate = tf.placeholder(tf.float32, [], 'learning_rate')  # decay learning rate
+            tf.summary.scalar('meta_learning_rate', self.__learning_rate)
             if self.__optimizer == 'adam':
-                optimizer = tf.train.AdamOptimizer(self.__lr * self.__lr_decay)
+                optimizer = tf.train.AdamOptimizer(self.__learning_rate)
             else:
-                optimizer = tf.train.GradientDescentOptimizer(self.__lr * self.__lr_decay)
+                optimizer = tf.train.GradientDescentOptimizer(self.__learning_rate)
             
             if self.__clip is not None:
                 grads, _ = tf.clip_by_global_norm(tf.gradients(self.__loss, tf.trainable_variables()), self.__clip)
@@ -184,7 +189,9 @@ class LanguageModel:
         from lstm_cell import CustomLSTMCell, KVPAttentionWrapper
         cells = []
         for i in range(self.__config["n_lstm_layer"]):
-            cell = CustomLSTMCell(num_units=self.__config['num_units'], dropout_keep_prob=keep_r)
+            cell = CustomLSTMCell(num_units=self.__config['num_units'],
+                                  recurrent_dropout=self.__config['recurrent_dropout'],
+                                  dropout_keep_prob=keep_r[0])
             cells.append(cell)
         cells = tf.nn.rnn_cell.MultiRNNCell(cells)
         attention_layer = KVPAttentionWrapper(cells,
@@ -202,7 +209,9 @@ class LanguageModel:
         from lstm_cell import CustomLSTMCell
         cells = []
         for i in range(self.__config["n_lstm_layer"]):
-            cell = CustomLSTMCell(num_units=self.__config['num_units'], dropout_keep_prob=keep_r)
+            cell = CustomLSTMCell(num_units=self.__config['num_units'],
+                                  recurrent_dropout=self.__config['recurrent_dropout'],
+                                  dropout_keep_prob=keep_r[0])
             cells.append(cell)
         cells = tf.nn.rnn_cell.MultiRNNCell(cells)
         outputs = []
@@ -222,6 +231,7 @@ class LanguageModel:
         for i in range(self.__config["n_lstm_layer"]):
             cell = HyperLSTMCell(num_units=self.__config['num_units'],
                                  num_units_hyper=self.__config['num_units_hyper'],
+                                 recurrent_dropout=self.__config['recurrent_dropout'],
                                  dropout_keep_prob=keep_r)
             cells.append(cell)
         cells = tf.nn.rnn_cell.MultiRNNCell(cells)
@@ -242,7 +252,8 @@ class LanguageModel:
                               recurrence_depth=self.__config['recurrence_depth'],
                               highway_state_gate=self.__config['highway_state_gate'],
                               num_units=self.__config['num_units'],
-                              dropout_keep_prob=keep_r)
+                              dropout_keep_prob_in=keep_r[0],
+                              dropout_keep_prob_h=keep_r[1])
         outputs = []
         self.__initial_state = cells.zero_state(batch_size=self.__batch_size, dtype=tf.float32)
         state = self.__initial_state
@@ -260,6 +271,7 @@ class LanguageModel:
               batcher_train,
               batcher_valid,
               batcher_test,
+              learning_rate: float,
               lr_decay: float = None,
               verbose=False):
         
@@ -275,7 +287,8 @@ class LanguageModel:
                 if ini_state is not None:
                     feed_dict[self.__initial_state] = ini_state
                 if e >= max_epoch and lr_decay is not None:
-                    feed_dict[self.__lr_decay] = lr_decay
+                    learning_rate = learning_rate / lr_decay
+                feed_dict[self.__learning_rate] = learning_rate
                 tmp_loss, tmp_perp, ini_state, _, summary = self.__session.run(
                     [self.__loss, self.__perplexity, self.__final_state, self.__train_op, self.__summary],
                     feed_dict=feed_dict)
@@ -292,11 +305,12 @@ class LanguageModel:
             perplexity_v, loss_v = 0.0, 0.0
             for step, (inp, tar) in enumerate(batcher_valid):
                 feed_dict = dict(((self.__inputs, inp), (self.__targets, tar), (self.__is_training, False)))
+                feed_dict[self.__learning_rate] = learning_rate
                 tmp_loss, tmp_perp, summary = self.__session.run(
                     [self.__loss, self.__perplexity, self.__summary], feed_dict=feed_dict)
                 perplexity_v += tmp_perp
                 loss_v += tmp_loss
-                self.__writer_train.add_summary(summary, i_summary_valid)
+                self.__writer_valid.add_summary(summary, i_summary_valid)
                 i_summary_valid += 1
             perplexity_v, loss_v = perplexity_v/step, loss_v/step
             self.__log.info("epoch %i, perplexity: train %0.3f, valid %0.3f" % (e, perplexity, perplexity_v))
