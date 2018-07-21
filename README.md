@@ -61,6 +61,7 @@ The usage is the same as usual LSTM cell of tensorflow.
 ## TODO
 - [ ] Neural architecture search
 - [ ] minimal RNN
+- [ ] char language model
 - [ ] Layer normalization dose not improve performance. Fix it.
 
 ## How to use

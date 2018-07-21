@@ -57,6 +57,7 @@ def get_options(parser):
     parser.add_argument('--max_max_epoch', help='max max epoch', required=True, type=int, **share_param)
     parser.add_argument('--max_epoch', help='max epoch', type=int, **share_param)
     parser.add_argument('--decay', help='max epoch', type=float, **share_param)
+    parser.add_argument('--lr', help='learning rate', type=float, **share_param)
     return parser.parse_args()
 
 
@@ -82,5 +83,6 @@ if __name__ == '__main__':
     model.train(max_max_epoch=args.max_max_epoch,
                 max_epoch=args.max_epoch if args.max_epoch is not None else args.max_max_epoch,
                 verbose=True,
-                lr_decay=0.8,
+                learning_rate=args.lr,
+                lr_decay=args.decay,
                 **iterators)
