@@ -10,7 +10,7 @@ batch_size=20
 layer_norm=false
 keep_prob=[0.75, 0.25]  # embedding, output
 keep_prob_r=[0.25, 0.75]  # input, state
-weight_decay=1e-9
+weight_decay=1e-7
 optimizer='sgd'
 ini_scale=0.04
 
@@ -23,3 +23,7 @@ highway_state_gate=false
 recurrent_highway=true
 recurrence_depth=10
 num_units=830
+
+coupling_gate=true
+forget_bias = -2.0
+

@@ -19,6 +19,7 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
 
     def __init__(self,
                  num_units: int,
+                 forget_bias: float=-2.0,
                  activation: str=None,
                  reuse: bool=None,
                  layer_norm: bool=False,
@@ -29,7 +30,8 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
                  dropout_prob_seed: int=None,  # dropout
                  recurrent_highway: bool=False,
                  highway_state_gate: bool=False,  # if true use
-                 recurrence_depth: int=4  # recurrent highway
+                 recurrence_depth: int=4,  # recurrent highway
+                 coupling_gate: bool=True
                  ):
         """Initialize the basic RNN cell.
         Args:
@@ -41,15 +43,20 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
           layer_norm: (optional) If True, apply layer normalization.
           norm_shift: (optional) Shift parameter for layer normalization.
           norm_gain: (optional) Gain parameter for layer normalization.
-          dropout_keep_prob: (optional) keep probability for variational dropout
-                             if list, (input, state), else use same float value
+          dropout_keep_prob_h: (optional) keep probability for variational dropout
+                               if list, (input, state), else use same float value
+          dropout_keep_prob_in: (optional) keep probability for variational dropout
+                               if list, (input, state), else use same float value
           dropout_prob_seed: (optional) seed value for dropout random variable
           recurrent_highway: (optional)
           recurrence_depth: (optional)
           highway_state_gate: (optional)
+          coupling_gate: valid for hsg, rhn. coupling c = 1-t
+          forget_bias: valid for hsg, rhn. forget gate initial bias
         """
         super(CustomRNNCell, self).__init__(_reuse=reuse)
         self._num_units = num_units
+        self._forget_bias = forget_bias
         self._activation = activation or math_ops.tanh
 
         self._layer_norm = layer_norm
@@ -68,6 +75,7 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
         self._highway = recurrent_highway
         self._highway_state_gate = highway_state_gate
         self._recurrence_depth = recurrence_depth
+        self._coupling_gate = coupling_gate
 
     @property
     def state_size(self):
@@ -96,13 +104,13 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
         return normalized_input * g + s
 
     @staticmethod
-    def _linear(x, weight_shape, bias=True, scope=None):
+    def _linear(x, weight_shape, bias=True, scope=None, bias_ini=0.0):
         """ linear projection (weight_shape: input size, output size) """
         with vs.variable_scope(scope or "linear"):
             w = vs.get_variable("kernel", shape=weight_shape)
             x = math_ops.matmul(x, w)
             if bias:
-                b = vs.get_variable("bias", initializer=[0.0] * weight_shape[-1])
+                b = vs.get_variable("bias", initializer=[bias_ini] * weight_shape[-1])
                 return nn_ops.bias_add(x, b)
             else:
                 return x
@@ -129,23 +137,32 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
                     if r == 1:
                         args = array_ops.concat([inputs, inter_out], 1)
                         h = self._linear(args, [args.get_shape()[-1], self._num_units], scope="h")
-                        t = self._linear(args, [args.get_shape()[-1], self._num_units], scope="t")
-                        c = self._linear(args, [args.get_shape()[-1], self._num_units], scope="c")
+                        t = self._linear(
+                            args, [args.get_shape()[-1], self._num_units], scope="t", bias_ini=self._forget_bias)
+                        if not self._coupling_gate:
+                            c = self._linear(args, [args.get_shape()[-1], self._num_units], scope="c")
                     else:
                         h = self._linear(inter_out, [self._num_units, self._num_units], scope="h")
-                        t = self._linear(inter_out, [self._num_units, self._num_units], scope="t")
-                        c = self._linear(inter_out, [self._num_units, self._num_units], scope="c")
+                        t = self._linear(
+                            inter_out, [self._num_units, self._num_units], scope="t", bias_ini=self._forget_bias)
+                        if not self._coupling_gate:
+                            c = self._linear(inter_out, [self._num_units, self._num_units], scope="c")
 
                     # layer normalization
                     if self._layer_norm:
                         h = self._layer_normalization(h, "layer_norm_h")
                         t = self._layer_normalization(t, "layer_norm_t")
-                        c = self._layer_normalization(c, "layer_norm_c")
+                        if not self._coupling_gate:
+                            c = self._layer_normalization(c, "layer_norm_c")
 
                     h = self._activation(h)
                     t = math_ops.sigmoid(t)
-                    c = math_ops.sigmoid(c)
-                    inter_out = h * t + inter_out * c
+
+                    if not self._coupling_gate:
+                        c = math_ops.sigmoid(c)
+                        inter_out = h * t + inter_out * c
+                    else:  # c = 1 - t
+                        inter_out = (h - inter_out) * t + inter_out
 
             # Highway state gate
             if self._highway_state_gate:

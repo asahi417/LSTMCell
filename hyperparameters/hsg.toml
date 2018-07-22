@@ -23,3 +23,6 @@ highway_state_gate=true
 recurrent_highway=true
 recurrence_depth=40
 num_units=830
+
+coupling_gate=true
+forget_bias = -2.5
