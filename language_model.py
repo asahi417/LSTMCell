@@ -49,21 +49,31 @@ class LanguageModel:
     """ Neural Language Model """
 
     def __init__(self,
+                 learning_rate: float,
                  checkpoint_dir: str,
                  model: str,
                  config: dict,
                  keep_prob: list,
                  keep_prob_r: list,
-                 gradient_clip=None,
-                 weight_decay=0.0,
-                 weight_tying=False,
-                 layer_norm=False,
-                 optimizer='sgd',
-                 batch_size=50,
-                 ini_scale=0.01):
+                 max_max_epoch: int,
+                 max_epoch: int = 1,
+                 learning_rate_decay: float = 1,
+                 gradient_clip: float=None,
+                 weight_decay: float=0.0,
+                 # weight_tying: bool=False,
+                 layer_norm: bool=False,
+                 optimizer: str='sgd',
+                 batch_size: int=50,
+                 ini_scale: float=0.01):
 
-        raise_error(model not in ['lstm', 'rhn', 'kvp', 'hsg', 'hyper'], 'unknown model %s' % model)
+        raise_error(model not in ['tf_lstm', 'lstm', 'rhn', 'kvp', 'hsg', 'hyper'], 'unknown model %s' % model)
         raise_error(optimizer not in ['sgd', 'adam'], 'unknown optimizer %s' % optimizer)
+
+        self.__ini_learning_rate = learning_rate
+        self.__learning_rate_decay = learning_rate_decay
+        self.__max_epoch = max_epoch
+        self.__max_max_epoch = max_max_epoch
+
         self.__model = model
         self.__checkpoint_dir = checkpoint_dir
         if not os.path.exists(self.__checkpoint_dir):
@@ -75,7 +85,7 @@ class LanguageModel:
         self.__keep_prob = keep_prob
         self.__keep_prob_r = keep_prob_r
         self.__weight_decay = weight_decay
-        self.__weight_tying = weight_tying
+        # self.__weight_tying = weight_tying
         self.__optimizer = optimizer
         self.__batch_size = batch_size
         self.__ini_scale = ini_scale
@@ -165,8 +175,8 @@ class LanguageModel:
 
             # get perplexity
             self.__tmp_loss = tf.placeholder(tf.float32, [], name='tmp_loss')
-            self.__loss += self.__tmp_loss
             self.__tmp_length = tf.placeholder(tf.float32, [], name='tmp_length')
+            self.__loss += self.__tmp_loss
             self.__perplexity = tf.exp(self.__loss/self.__tmp_length)
 
             tf.summary.scalar('eval_loss', loss)
@@ -216,14 +226,30 @@ class LanguageModel:
         return outputs, attention_layer.n_hidden
 
     def __lstm(self, inputs, keep_r):  # vanilla LSTM: stacked LSTM layer
-        from lstm_cell import CustomLSTMCell
-        cells = []
-        for i in range(self.__config["n_lstm_layer"]):
-            cell = CustomLSTMCell(num_units=self.__config['num_units'],
-                                  recurrent_dropout=self.__config['recurrent_dropout'],
-                                  dropout_keep_prob=keep_r[0],
-                                  forget_bias=self.__config['forget_bias'])
-            cells.append(cell)
+
+        if self.__model == 'tf_lstm':
+            # vanilla LSTM with ordinary dropout between each layer
+            cells = []
+            for i in range(self.__config["n_lstm_layer"]):
+                cell = tf.nn.rnn_cell.BasicLSTMCell(
+                    num_units=self.__config['num_units'], forget_bias=self.__config['forget_bias'])
+                cell = tf.contrib.rnn.DropoutWrapper(
+                    cell, output_keep_prob=keep_r[0])
+                cells.append(cell)
+
+        elif self.__model == 'lstm':
+            # Custom basic LSTM with variational dropout
+            from lstm_cell import CustomLSTMCell
+            cells = []
+            for i in range(self.__config["n_lstm_layer"]):
+                cell = CustomLSTMCell(num_units=self.__config['num_units'],
+                                      recurrent_dropout=self.__config['recurrent_dropout'],
+                                      dropout_keep_prob=keep_r[0],
+                                      forget_bias=self.__config['forget_bias'])
+                cells.append(cell)
+        else:
+            raise ValueError('Jesus Christ')
+
         cells = tf.nn.rnn_cell.MultiRNNCell(cells)
         outputs = []
         self.__initial_state = cells.zero_state(batch_size=self.__batch_size, dtype=tf.float32)
@@ -234,6 +260,7 @@ class LanguageModel:
             (cell_output, state) = cells(inputs[:, time_step, :], state)
             outputs.append(cell_output)
         self.__final_state = state
+
         return tf.stack(outputs, axis=1), self.__config["num_units"]
 
     def __hypernets(self, inputs, keep_r):  # hypernets
@@ -280,23 +307,20 @@ class LanguageModel:
         return tf.stack(outputs, axis=1), self.__config["num_units"]
 
     def train(self,
-              max_max_epoch: int,
-              max_epoch: int,
               batcher_train,
               batcher_valid,
               batcher_test,
-              learning_rate: float,
-              lr_decay: float = None,
               verbose=False):
 
-        self.__log.info("max epoch (%i), max max epoch (%i)" % (max_epoch, max_max_epoch))
+        self.__log.info("max epoch (%i), max max epoch (%i)" % (self.__max_epoch, self.__max_max_epoch))
         ini_state = None
         result = []
         i_summary_train, i_summary_valid = 0, 0
-        for e in range(max_max_epoch):
+        learning_rate = self.__ini_learning_rate
+        for e in range(self.__max_max_epoch):
             # decay learning rate every epoch after `max_epoch`
-            if e >= max_epoch and lr_decay is not None:
-                learning_rate = learning_rate / lr_decay
+            if e >= self.__max_epoch and self.__learning_rate_decay is not None:
+                learning_rate = learning_rate / self.__learning_rate_decay
             # Train
             loss, length = 0.0, 0
             for step, (inp, tar) in enumerate(batcher_train):

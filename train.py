@@ -4,7 +4,7 @@ import toml
 import json
 from glob import glob
 from data_reader import ptb_raw_data, BatchFeeder
-from model_language import LanguageModel
+from language_model import LanguageModel
 
 
 def checkpoint_version(checkpoint_dir: str,
@@ -54,10 +54,6 @@ def checkpoint_version(checkpoint_dir: str,
 def get_options(parser):
     share_param = {'nargs': '?', 'action': 'store', 'const': None, 'choices': None, 'metavar': None}
     parser.add_argument('-m', '--model', help='LSTM type', required=True, type=str, **share_param)
-    parser.add_argument('--max_max_epoch', help='max max epoch', required=True, type=int, **share_param)
-    parser.add_argument('--max_epoch', help='max epoch', type=int, **share_param)
-    parser.add_argument('--decay', help='max epoch', type=float, **share_param)
-    parser.add_argument('--lr', help='learning rate', type=float, **share_param)
     return parser.parse_args()
 
 
@@ -80,9 +76,4 @@ if __name__ == '__main__':
                                      sequence=raw_data)
 
     model = LanguageModel(checkpoint_dir=_checkpoint_dir, **_parameter)
-    model.train(max_max_epoch=args.max_max_epoch,
-                max_epoch=args.max_epoch if args.max_epoch is not None else args.max_max_epoch,
-                verbose=True,
-                learning_rate=args.lr,
-                lr_decay=args.decay,
-                **iterators)
+    model.train(verbose=True, **iterators)

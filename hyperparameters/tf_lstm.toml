@@ -1,4 +1,4 @@
-model='lstm'
+model='tf_lstm'
 
 # Large model (Zaremba 2014) with valiational dropout
 # same hyperparameter of `A Theoretically Grounded Application of Dropout in Recurrent Neural Networks`
@@ -15,7 +15,7 @@ learning_rate_decay=1.15
 gradient_clip=10
 batch_size=20
 layer_norm=false
-keep_prob=[0.5, 0.5]
+keep_prob=[0.5, 0.5]  # input, output
 keep_prob_r=[0.5]
 weight_decay=1e-7
 optimizer='sgd'
