@@ -363,6 +363,7 @@ class LanguageModel:
             feed_dict = dict(((self.__inputs, inp), (self.__targets, tar), (self.__is_training, False),
                               (self.__tmp_length, length_t), (self.__tmp_loss, loss_t)))
             loss_t, perplexity_t = self.__session.run([self.__loss, self.__perplexity], feed_dict=feed_dict)
+
         loss_t = loss_t/step
         self.__log.info("test perplexity %0.3f" % perplexity_t)
         self.__saver.save(self.__session, self.__checkpoint)
