@@ -226,12 +226,17 @@ class LanguageModel:
         return outputs, attention_layer.n_hidden
 
     def __lstm(self, inputs, keep_r):  # vanilla LSTM: stacked LSTM layer
-
-        if self.__model == 'tf_lstm':
-            # vanilla LSTM with ordinary dropout between each layer
+        if self.__model in ['tf_lstm', 'tf_lstm_check']:
+            if self.__model == 'tf_lstm':
+                # vanilla LSTM with ordinary dropout between each layer
+                lstm_instance = tf.nn.rnn_cell.BasicLSTMCell
+            else:
+                # tf_lstm_check is to check if the CustomLSTM behaves as same as BasicLSTM cell
+                from lstm_cell import CustomLSTMCell
+                lstm_instance = CustomLSTMCell
             cells = []
             for i in range(self.__config["n_lstm_layer"]):
-                cell = tf.nn.rnn_cell.BasicLSTMCell(
+                cell = lstm_instance(
                     num_units=self.__config['num_units'], forget_bias=self.__config['forget_bias'])
                 cell = tf.contrib.rnn.DropoutWrapper(
                     cell, output_keep_prob=keep_r[0])
