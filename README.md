@@ -76,28 +76,13 @@ tar xvzf simple-examples.tgz
 ### train language model
 One can train language model by an arbitrary cell:
 ```
-python train.py -m [lstm type] --max_max_epoch [epoch]
+python train.py -m [lstm type]
 
     [lstm type]: lstm, rhn, hypernets, kvp, hsg
 ```
 
-The middle sized model of [Zaremba, Wojciech, Ilya Sutskever, and Oriol Vinyals. "Recurrent neural network regularization." arXiv preprint arXiv:1409.2329 (2014)](https://arxiv.org/abs/1409.2329)
-is employed as baseline model. Vanilla LSTM achieves better result with two stacked LSTM layers and other LSTM cells 
-achieves their best score with single LSTM layer.  
-
-## Brief comparison 
-The results on brief experiment over PTB data set is shown by following table.
-See [here](hyperparameters) for hyperparameters.
-
-| Cell | Validation perplexity | Epoch | Trainable variables |
-| --- | --- | --- | --- |
-| vanilla LSTM        | 152.10 | 8  | 19775200 | 
-| Hypernets           | 142.12 | 51 | 21537504 |
-| KVP attention       | 142.52 | 10 | 21465850 |
-| Recurrent Highway   | 138.00 | 15 | 19355300 |
-| Highway State Gating| 138.21 | 14 | 19355300 |
-
-Note that this result is by really rough tuning on hyperparameters.
+The large sized model of [Zaremba, Wojciech, Ilya Sutskever, and Oriol Vinyals. "Recurrent neural network regularization." arXiv preprint arXiv:1409.2329 (2014)](https://arxiv.org/abs/1409.2329)
+is employed as baseline model.
 
 # Other
 - This code is supported by python 3 and tensorflow 1.3.0.
