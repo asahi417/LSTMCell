@@ -40,12 +40,17 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
                  forget_bias=1.0,
                  activation=None,
                  reuse=None,
-                 layer_norm=False,
-                 norm_shift=0.0,
-                 norm_gain=1.0,  # layer normalization
-                 dropout_keep_prob=1.0,
-                 dropout_prob_seed=None,
-                 recurrent_dropout=True  # dropout
+                 layer_norm: bool=False,
+                 norm_shift: float=0.0,
+                 norm_gain: float=1.0,  # layer normalization
+                 dropout_keep_prob_in: float = 1.0,
+                 dropout_keep_prob_h: float=1.0,
+                 dropout_keep_prob_out: float=1.0,
+                 dropout_keep_prob_gate: float=1.0,
+                 dropout_keep_prob_forget: float=1.0,
+                 dropout_prob_seed: int=None,
+                 variational_dropout: bool=False,
+                 recurrent_dropout: bool=False
                  ):
         """Initialize the basic LSTM cell.
         Args:
@@ -60,9 +65,14 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
           layer_norm: (optional) If True, apply layer normalization.
           norm_shift: (optional) Shift parameter for layer normalization.
           norm_gain: (optional) Gain parameter for layer normalization.
-          dropout_keep_prob: (optional)
           dropout_prob_seed: (optional)
-          recurrent_dropout: (optional) if True, use recurrent dropout, else use variational dropout for recurrent unit.
+          recurrent_dropout: (optional)
+          dropout_keep_prob_in: (optional) keep probability of variational dropout for input
+          dropout_keep_prob_out: (optional) keep probability of variational dropout for output
+          dropout_keep_prob_gate: (optional) keep probability of variational dropout for gating cell
+          dropout_keep_prob_forget: (optional) keep probability of variational dropout for forget cell
+          dropout_keep_prob_h: (optional) keep probability of recurrent dropout for gated state
+
         """
         super(CustomLSTMCell, self).__init__(_reuse=reuse)
         self._num_units = num_units
@@ -73,14 +83,15 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
         self._g = norm_gain
         self._b = norm_shift
 
-        self._recurrent_dropout = recurrent_dropout  # if False -> Variational Dropput
+        self._recurrent_dropout = recurrent_dropout
+        self._variational_dropout = variational_dropout
+        
         self._seed = dropout_prob_seed
-        if self._recurrent_dropout:
-            if not isinstance(dropout_keep_prob, float):
-                raise ValueError('keep prob have to be float value')
-            self._keep_prob = dropout_keep_prob
-        else:
-            self._keep_prob_i = self._keep_prob_g = self._keep_prob_f = self._keep_prob_o = dropout_keep_prob
+        self._keep_prob_i = dropout_keep_prob_in
+        self._keep_prob_g = dropout_keep_prob_gate
+        self._keep_prob_f = dropout_keep_prob_forget
+        self._keep_prob_o = dropout_keep_prob_out
+        self._keep_prob_h = dropout_keep_prob_h
 
     @property
     def state_size(self):
@@ -145,12 +156,8 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
             o = self._layer_normalization(o, "layer_norm_o")
         g = self._activation(j)  # gating
 
-        # dropout (recurrent or variational)
-        if self._recurrent_dropout:  # recurrent dropout
-            if not isinstance(self._keep_prob, float):
-                raise ValueError('keep prob have to be float')
-            g = nn_ops.dropout(g, self._keep_prob, seed=self._seed)
-        else:  # variational dropout
+        # variational dropout
+        if self._variational_dropout:
             i = nn_ops.dropout(i, self._keep_prob_i, seed=self._seed)
             g = nn_ops.dropout(g, self._keep_prob_g, seed=self._seed)
             f = nn_ops.dropout(f, self._keep_prob_f, seed=self._seed)
@@ -158,6 +165,10 @@ class CustomLSTMCell(rnn_cell_impl.RNNCell):
 
         gated_in = math_ops.sigmoid(i) * g
         memory = c * math_ops.sigmoid(f + self._forget_bias)
+
+        # recurrent dropout
+        if self._recurrent_dropout:
+            gated_in = nn_ops.dropout(gated_in, self._keep_prob_h, seed=self._seed)
 
         # layer normalization for memory cell (original paper didn't use for memory cell).
         # if self._layer_norm:

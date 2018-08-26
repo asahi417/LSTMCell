@@ -14,9 +14,9 @@ learning_rate_decay=1.15
 
 gradient_clip=10
 batch_size=20
-layer_norm=false
+#layer_norm=false
 keep_prob=[0.5, 0.5]
-keep_prob_r=[0.5]
+keep_prob_r=[1.0, 0.5, 0.5, 0.5, 0.5]  # h, in, out, gate, forget
 weight_decay=1e-7
 optimizer='sgd'
 ini_scale=0.04
@@ -28,4 +28,5 @@ num_steps=35
 embedding_size=1500
 num_units=1500
 recurrent_dropout=false
+variational_dropout=true
 forget_bias = 0.0

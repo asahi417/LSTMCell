@@ -25,13 +25,14 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
                  layer_norm: bool=False,
                  norm_shift: float=0.0,
                  norm_gain: float=1.0,  # layer normalization
-                 dropout_keep_prob_in=1.0,
-                 dropout_keep_prob_h=1.0,
+                 dropout_keep_prob_in: float=1.0,
+                 dropout_keep_prob_h: float=1.0,
+                 variational_dropout: bool=True,
                  dropout_prob_seed: int=None,  # dropout
                  recurrent_highway: bool=False,
-                 highway_state_gate: bool=False,  # if true use
-                 recurrence_depth: int=4,  # recurrent highway
-                 coupling_gate: bool=True
+                 highway_state_gate: bool=False,  # if true use HSG
+                 recurrence_depth: int=4,  # depth for recurrent highway
+                 coupling_gate: bool=True  # coupling parameter for RHN and HSG
                  ):
         """Initialize the basic RNN cell.
         Args:
@@ -43,16 +44,15 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
           layer_norm: (optional) If True, apply layer normalization.
           norm_shift: (optional) Shift parameter for layer normalization.
           norm_gain: (optional) Gain parameter for layer normalization.
-          dropout_keep_prob_h: (optional) keep probability for variational dropout
-                               if list, (input, state), else use same float value
-          dropout_keep_prob_in: (optional) keep probability for variational dropout
-                               if list, (input, state), else use same float value
+          dropout_keep_prob_h: (optional) keep probability of variational dropout for recurrent unit
+          dropout_keep_prob_in: (optional) keep probability of dropout for input
           dropout_prob_seed: (optional) seed value for dropout random variable
           recurrent_highway: (optional)
           recurrence_depth: (optional)
           highway_state_gate: (optional)
           coupling_gate: valid for hsg, rhn. coupling c = 1-t
           forget_bias: valid for hsg, rhn. forget gate initial bias
+          variational_dropout: bool, if use variational dropout (apply dropout between state)
         """
         super(CustomRNNCell, self).__init__(_reuse=reuse)
         self._num_units = num_units
@@ -67,15 +67,11 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
         self._keep_prob_h = dropout_keep_prob_h
         self._seed = dropout_prob_seed
 
-        if not isinstance(recurrent_highway, bool):
-            raise ValueError('recurrent_highway need to be bool.')
-        if not isinstance(highway_state_gate, bool):
-            raise ValueError('highway_state_gate need to be bool.')
-
         self._highway = recurrent_highway
         self._highway_state_gate = highway_state_gate
         self._recurrence_depth = recurrence_depth
         self._coupling_gate = coupling_gate
+        self._variational_dropout = variational_dropout
 
     @property
     def state_size(self):
@@ -123,10 +119,12 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
             state_hsg, state = state
         else:
             state_hsg = None
-        # variational dropout for hidden unit (recurrent unit)
-        state = nn_ops.dropout(state, self._keep_prob_h, seed=self._seed)
 
-        # variational dropout for input
+        # variational dropout for hidden unit (recurrent unit)
+        if self._variational_dropout:
+            state = nn_ops.dropout(state, self._keep_prob_h, seed=self._seed)
+
+        # dropout for input
         inputs = nn_ops.dropout(inputs, self._keep_prob_in, seed=self._seed)
 
         if self._highway or self._recurrence_depth > 1:
@@ -142,6 +140,11 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
                         if not self._coupling_gate:
                             c = self._linear(args, [args.get_shape()[-1], self._num_units], scope="c")
                     else:
+
+                        # variational dropout for recurrent unit
+                        if self._variational_dropout:
+                            inter_out = nn_ops.dropout(inter_out, self._keep_prob_h, seed=self._seed)
+
                         h = self._linear(inter_out, [self._num_units, self._num_units], scope="h")
                         t = self._linear(
                             inter_out, [self._num_units, self._num_units], scope="t", bias_ini=self._forget_bias)
@@ -185,9 +188,6 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
                 linear = self._layer_normalization(linear, "layer_norm")
             state = self._activation(linear)
             output = self._activation(linear)
+
         return output, state
-
-
-if __name__ == '__main__':
-    _cell = CustomRNNCell(256, dropout_keep_prob=0.75, recurrent_highway=True)
 

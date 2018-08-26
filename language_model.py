@@ -4,6 +4,16 @@ import logging
 import os
 
 
+MODELS = ['tf_lstm',  # tensorflow's BasicLSTM
+          'tf_lstm_check',  # CustomLSTM for checking if its behave same as BasicLSTM
+          'lstm',  # Custom LSTM
+          'rhn',  # Recurrent Hihgway Network
+          'kvp',  # Key-Value-Predict Attention
+          'hsg',  # Highway State Gating
+          'hyper'  # Hypernets
+          ]
+
+
 def variable_summaries(var, name):
     """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
     with tf.name_scope('var_%s' % name):
@@ -66,7 +76,7 @@ class LanguageModel:
                  batch_size: int=50,
                  ini_scale: float=0.01):
 
-        raise_error(model not in ['tf_lstm', 'lstm', 'rhn', 'kvp', 'hsg', 'hyper'], 'unknown model %s' % model)
+        raise_error(model not in MODELS, 'unknown model %s' % model)
         raise_error(optimizer not in ['sgd', 'adam'], 'unknown optimizer %s' % optimizer)
 
         self.__ini_learning_rate = learning_rate
@@ -211,7 +221,7 @@ class LanguageModel:
         for i in range(self.__config["n_lstm_layer"]):
             cell = CustomLSTMCell(num_units=self.__config['num_units'],
                                   recurrent_dropout=self.__config['recurrent_dropout'],
-                                  dropout_keep_prob=keep_r[0])
+                                  dropout_keep_prob_h=keep_r[0])
             cells.append(cell)
         cells = tf.nn.rnn_cell.MultiRNNCell(cells)
         attention_layer = KVPAttentionWrapper(cells,
@@ -249,11 +259,16 @@ class LanguageModel:
             for i in range(self.__config["n_lstm_layer"]):
                 cell = CustomLSTMCell(num_units=self.__config['num_units'],
                                       recurrent_dropout=self.__config['recurrent_dropout'],
-                                      dropout_keep_prob=keep_r[0],
+                                      variational_dropout=self.__config['variational_dropout'],
+                                      dropout_keep_prob_h=keep_r[1],
+                                      dropout_keep_prob_in=keep_r[1],
+                                      dropout_keep_prob_out=keep_r[2],
+                                      dropout_keep_prob_gate=keep_r[3],
+                                      dropout_keep_prob_forget=keep_r[4],
                                       forget_bias=self.__config['forget_bias'])
                 cells.append(cell)
         else:
-            raise ValueError('Jesus Christ')
+            raise ValueError('Jesus')
 
         cells = tf.nn.rnn_cell.MultiRNNCell(cells)
         outputs = []

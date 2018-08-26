@@ -15,7 +15,7 @@ def checkpoint_version(checkpoint_dir: str,
     - return checkpoint dir, which corresponds to the version
     - return new directory
     :param config:
-    :param checkpoint_dir: `./checkpoint/lam
+    :param checkpoint_dir: `./checkpoint/lstm
     :param version: number of checkpoint
     :return:
     """
