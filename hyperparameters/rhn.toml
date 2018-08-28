@@ -3,11 +3,10 @@ model='rhn'
 # RHN
 # learning rate: 0.2
 # decay after 20 epoch: divide by 1.02
-# epoch 55
+# epoch 500
 
 learning_rate=0.2
 max_epoch=20
-max_max_epoch=55
 learning_rate_decay=1.02
 
 gradient_clip=10

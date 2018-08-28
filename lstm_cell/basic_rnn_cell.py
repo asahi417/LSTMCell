@@ -170,10 +170,13 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
             # Highway state gate
             if self._highway_state_gate:
                 args = array_ops.concat([state_hsg, inter_out], 1)
-                g = self._linear(args, [args.get_shape()[-1], self._num_units], scope="highway_state_gate")
+                g = self._linear(args,
+                                 [args.get_shape()[-1], self._num_units],
+                                 scope="highway_state_gate",
+                                 bias_ini=self._forget_bias)
                 g = math_ops.sigmoid(g)
-                output = g * state_hsg + (1 - g) * inter_out
-                state = rnn_cell_impl.LSTMStateTuple(output, inter_out)
+                state_hsg = output = g * state_hsg + (1 - g) * inter_out
+                state = rnn_cell_impl.LSTMStateTuple(state_hsg, inter_out)
             else:
                 state = inter_out
                 output = inter_out
@@ -181,7 +184,7 @@ class CustomRNNCell(rnn_cell_impl.RNNCell):
         else:
             # Most basic RNN: output = new_state = act(W * input + U * state + B).
             args = array_ops.concat([inputs, state], 1)
-            linear = self._linear(args, [args.get_shape()[-1], self._num_units])
+            linear = self._linear(args, [args.get_shape()[-1], self._num_units], bias_ini=self._forget_bias)
 
             # layer normalization
             if self._layer_norm:

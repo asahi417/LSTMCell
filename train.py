@@ -54,6 +54,7 @@ def checkpoint_version(checkpoint_dir: str,
 def get_options(parser):
     share_param = {'nargs': '?', 'action': 'store', 'const': None, 'choices': None, 'metavar': None}
     parser.add_argument('-m', '--model', help='LSTM type', required=True, type=str, **share_param)
+    parser.add_argument('-e', '--epoch', help='LSTM type', required=True, type=int, **share_param)
     return parser.parse_args()
 
 
@@ -75,5 +76,5 @@ if __name__ == '__main__':
                                      num_steps=_parameter['config']['num_steps'],
                                      sequence=raw_data)
 
-    model = LanguageModel(checkpoint_dir=_checkpoint_dir, **_parameter)
+    model = LanguageModel(max_max_epoch=args.epoch, checkpoint_dir=_checkpoint_dir, **_parameter)
     model.train(verbose=True, **iterators)

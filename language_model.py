@@ -10,8 +10,7 @@ MODELS = ['tf_lstm',  # tensorflow's BasicLSTM
           'rhn',  # Recurrent Hihgway Network
           'kvp',  # Key-Value-Predict Attention
           'hsg',  # Highway State Gating
-          'hyper'  # Hypernets
-          ]
+          'hyper']  # Hypernets
 
 
 def variable_summaries(var, name):
@@ -109,7 +108,16 @@ class LanguageModel:
         self.__summary = tf.summary.merge_all()
         self.__writer_train = tf.summary.FileWriter('%s/summary_train' % self.__checkpoint_dir, self.__session.graph)
         self.__writer_valid = tf.summary.FileWriter('%s/summary_valid' % self.__checkpoint_dir)
-        self.__session.run(tf.global_variables_initializer())
+
+        # Load model
+        if os.path.exists('%s.meta' % self.__checkpoint):
+            self.__log.info('load checkpoint: %s' % self.__checkpoint_dir)
+            self.__saver.restore(self.__session, self.__checkpoint)
+            self.__warm = True
+        else:
+            self.__log.info('create checkpoint: %s' % self.__checkpoint_dir)
+            self.__session.run(tf.global_variables_initializer())
+            self.__warm = False
 
     def __build_graph(self):
         #########
@@ -246,10 +254,8 @@ class LanguageModel:
                 lstm_instance = CustomLSTMCell
             cells = []
             for i in range(self.__config["n_lstm_layer"]):
-                cell = lstm_instance(
-                    num_units=self.__config['num_units'], forget_bias=self.__config['forget_bias'])
-                cell = tf.contrib.rnn.DropoutWrapper(
-                    cell, output_keep_prob=keep_r[0])
+                cell = lstm_instance(num_units=self.__config['num_units'], forget_bias=self.__config['forget_bias'])
+                cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=keep_r[0])
                 cells.append(cell)
 
         elif self.__model == 'lstm':
@@ -334,10 +340,21 @@ class LanguageModel:
 
         self.__log.info("max epoch (%i), max max epoch (%i)" % (self.__max_epoch, self.__max_max_epoch))
         ini_state = None
-        result = []
-        i_summary_train, i_summary_valid = 0, 0
-        learning_rate = self.__ini_learning_rate
-        for e in range(self.__max_max_epoch):
+
+        if self.__warm:
+            meta = np.load("%s/statistics.npz" % self.__checkpoint_dir)
+            ini_epoch = int(meta['epoch'])
+            result = meta['loss'].tolist()
+            i_summary_train = int(meta['i_summary_train'])
+            i_summary_valid = int(meta['i_summary_valid'])
+            learning_rate = float(meta['learning_rate'])
+        else:
+            ini_epoch = 0
+            result = []
+            i_summary_train, i_summary_valid = 0, 0
+            learning_rate = self.__ini_learning_rate
+
+        for e in range(ini_epoch, ini_epoch+self.__max_max_epoch):
             # decay learning rate every epoch after `max_epoch`
             if e >= self.__max_epoch and self.__learning_rate_decay is not None:
                 learning_rate = learning_rate / self.__learning_rate_decay
@@ -387,5 +404,9 @@ class LanguageModel:
         self.__log.info("test perplexity %0.3f" % perplexity_t)
         self.__saver.save(self.__session, self.__checkpoint)
         np.savez("%s/statistics.npz" % self.__checkpoint_dir,
+                 i_summary_train=i_summary_train+1,
+                 i_summary_valid=i_summary_valid+1,
+                 epoch=e+1,
+                 learning_rate=learning_rate,
                  loss=np.array(result),
                  test=np.array(perplexity_t, loss_t))

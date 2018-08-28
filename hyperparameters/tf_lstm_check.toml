@@ -8,7 +8,6 @@ model='tf_lstm_check'
 
 learning_rate=1.0
 max_epoch=14
-max_max_epoch=55
 learning_rate_decay=1.15
 
 
