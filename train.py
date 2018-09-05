@@ -55,6 +55,7 @@ def get_options(parser):
     share_param = {'nargs': '?', 'action': 'store', 'const': None, 'choices': None, 'metavar': None}
     parser.add_argument('-m', '--model', help='LSTM type', required=True, type=str, **share_param)
     parser.add_argument('-e', '--epoch', help='LSTM type', required=True, type=int, **share_param)
+    parser.add_argument('-v', '--version', help='', default=None, type=int, **share_param)
     return parser.parse_args()
 
 
@@ -64,8 +65,12 @@ if __name__ == '__main__':
     # checkpoint
     _parser = argparse.ArgumentParser(description='This script is ...', formatter_class=argparse.RawTextHelpFormatter)
     args = get_options(_parser)
-    _parameter = toml.load(open('./hyperparameters/%s.toml' % args.model))
-    _checkpoint_dir, _ = checkpoint_version('./checkpoint/%s' % args.model, _parameter)
+    if args.version is not None:
+        _checkpoint_dir, _parameter = \
+            checkpoint_version('./checkpoint/%s' % args.model, version=args.version)
+    else:
+        _parameter = toml.load(open('./hyperparameters/%s.toml' % args.model))
+        _checkpoint_dir, _ = checkpoint_version('./checkpoint/%s' % args.model, _parameter)
 
     # data
     raw_train, raw_validation, raw_test, vocab = ptb_raw_data("./simple-examples/data")
